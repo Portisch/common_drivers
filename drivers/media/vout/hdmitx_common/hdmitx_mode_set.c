@@ -64,8 +64,6 @@ void edidinfo_attach_to_vinfo(struct hdmitx_common *tx_comm)
 	struct vout_device_s *vdev = tx_comm->vdev;
 
 	hdrinfo_to_vinfo(&info->hdr_info, tx_comm);
-	if (para->cd == COLORDEPTH_24B)
-		memset(&info->hdr_info, 0, sizeof(struct hdr_info));
 	rxlatency_to_vinfo(tx_comm);
 	vdev->dv_info = &tx_comm->rxcap.dv_info;
 	hdmi_physical_size_to_vinfo(tx_comm);
@@ -611,4 +609,3 @@ void hdmitx_common_late_resume(struct hdmitx_common *tx_comm)
 	hdmitx_event_mgr_send_uevent(tx_comm->event_mgr,
 		HDMITX_HDCPPWR_EVENT, HDMI_WAKEUP, false);
 }
-
