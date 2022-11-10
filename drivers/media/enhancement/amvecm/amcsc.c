@@ -7329,7 +7329,7 @@ bool is_vinfo_available(const struct vinfo_s *vinfo)
 EXPORT_SYMBOL(is_vinfo_available);
 
 #ifndef CONFIG_AMLOGIC_ZAPPER_CUT
-static enum hdr_type_e get_source_type(enum vd_path_e vd_path,
+static enum hdr_type_e get_source_type_by_sink_limit(enum vd_path_e vd_path,
 	enum vpp_index_e vpp_index, struct vframe_s *vf)
 {
 	struct vinfo_s *vinfo;
@@ -7469,7 +7469,7 @@ enum hdr_type_e get_cur_source_type(enum vd_path_e vd_path,
 	if (vd_path >= VD_PATH_MAX)
 		return UNKNOWN_SOURCE;
 
-	return get_source_type(vd_path, vpp_index, vf);
+	return get_source_type_by_sink_limit(vd_path, vpp_index, vf);
 #else
 	return HDRTYPE_SDR;
 #endif
@@ -7485,7 +7485,7 @@ int get_hdr_module_status(enum vd_path_e vd_path,
 	    is_amdv_enable() &&
 	    get_amdv_policy()
 	    == AMDV_FOLLOW_SOURCE &&
-	    get_source_type(VD1_PATH, vpp_index, NULL)
+	    get_source_type_by_sink_limit(VD1_PATH, vpp_index, NULL)
 	    == HDRTYPE_SDR &&
 	    sdr_process_mode[VD1_PATH]
 	    == PROC_BYPASS) {
@@ -7498,7 +7498,7 @@ int get_hdr_module_status(enum vd_path_e vd_path,
 	    is_amdv_enable() &&
 	    get_amdv_policy()
 	    == AMDV_FOLLOW_SOURCE &&
-	    get_source_type(VD2_PATH, vpp_index, NULL)
+	    get_source_type_by_sink_limit(VD2_PATH, vpp_index, NULL)
 	    == HDRTYPE_SDR &&
 	    sdr_process_mode[VD2_PATH]
 	    == PROC_BYPASS)
@@ -9202,12 +9202,28 @@ static int vpp_matrix_update(struct vframe_s *vf,
 	    !(flags & CSC_FLAG_CHECK_OUTPUT))
 		signal_change_flag |= SIG_FORCE_CHG;
 
-	source_format[VD1_PATH] = get_source_type(VD1_PATH, vpp_index, vf);
-	source_format[VD2_PATH] = get_source_type(VD2_PATH, vpp_index, vf);
-	source_format[VD3_PATH] = get_source_type(VD3_PATH, vpp_index, vf);
+	// get source type by hdr policy
+	if (get_hdr_policy() == 0) {
+		// source type limited by sink capability
+		source_format[VD1_PATH] = get_source_type_by_sink_limit(VD1_PATH, vpp_index, vf);
+		source_format[VD2_PATH] = get_source_type_by_sink_limit(VD2_PATH, vpp_index, vf);
+		source_format[VD3_PATH] = get_source_type_by_sink_limit(VD3_PATH, vpp_index, vf);
+	} else {
+		// real source type
+		source_format[VD1_PATH] = get_hdr_source_type();
+		source_format[VD2_PATH] = get_hdr_source_type();
+		source_format[VD3_PATH] = get_hdr_source_type();
+	}
 	if (mosaic_mode) {
-		source_format[VD1_1_PATH] = get_source_type(VD1_1_PATH, vpp_index, vf);
-		source_format[VD2_1_PATH] = get_source_type(VD2_1_PATH, vpp_index, vf);
+		if (get_hdr_policy() == 0) {
+			// source type limited by sink capability
+			source_format[VD1_1_PATH] = get_source_type_by_sink_limit(VD1_1_PATH, vpp_index, vf);
+			source_format[VD2_1_PATH] = get_source_type_by_sink_limit(VD2_1_PATH, vpp_index, vf);
+		} else {
+			// real source type
+			source_format[VD1_1_PATH] = get_hdr_source_type();
+			source_format[VD2_1_PATH] = get_hdr_source_type();
+		}
 	}
 
 	if (is_amdv_on() &&
@@ -9394,9 +9410,9 @@ static int vpp_matrix_update(struct vframe_s *vf,
 
 	if (cur_sbtm_mode[vd_path] != sbtm_mode &&
 		sbtm_mode_support_get() &&
-		((get_source_type(vd_path, vpp_index, vf) == HDRTYPE_HDR10) ||
+		((get_source_type_by_sink_limit(vd_path, vpp_index, vf) == HDRTYPE_HDR10) ||
 		(get_hdr_policy() != 1 &&
-		get_source_type(vd_path, vpp_index, vf) == HDRTYPE_SDR))) {
+		get_source_type_by_sink_limit(vd_path, vpp_index, vf) == HDRTYPE_SDR))) {
 		if (sbtm_mode) {
 			/*sbtm off -> on, or sbtm mode change, current frame on*/
 			if (output_format == BT2020_PQ) {
@@ -9885,9 +9901,9 @@ int amvecm_matrix_process(struct vframe_s *vf,
 	if (sbtmdb_change_get(vd_path) ||
 		(cur_sbtm_mode[vd_path] != sbtm_mode &&
 		sbtm_mode_support_get() &&
-		((get_source_type(vd_path, vpp_index, vf) == HDRTYPE_HDR10) ||
+		((get_source_type_by_sink_limit(vd_path, vpp_index, vf) == HDRTYPE_HDR10) ||
 		(get_hdr_policy() != 1 &&
-		get_source_type(vd_path, vpp_index, vf) == HDRTYPE_SDR))))
+		get_source_type_by_sink_limit(vd_path, vpp_index, vf) == HDRTYPE_SDR))))
 		cap_changed = true;
 
 	if (vf && (flags & CSC_FLAG_CHECK_OUTPUT)) {
@@ -10142,7 +10158,7 @@ int amvecm_matrix_process(struct vframe_s *vf,
 			if (is_amdv_enable()) {
 				/* dolby enable */
 				dv_hdr_policy = get_amdv_hdr_policy(vf);
-				source_type = get_source_type(VD1_PATH, vpp_index, vf);
+				source_type = get_source_type_by_sink_limit(VD1_PATH, vpp_index, vf);
 				pr_csc(8,
 				       "vd%d: %d %d Fake SDR frame%s, dv on=%d, policy=%d, hdr policy=0x%x, height %d, width %d\n",
 				       vd_path + 1,
@@ -10157,9 +10173,9 @@ int amvecm_matrix_process(struct vframe_s *vf,
 				       cur_vd_w);
 				if (cur_sbtm_mode[vd_path] != sbtm_mode &&
 					sbtm_mode_support_get() &&
-					(get_source_type(vd_path, vpp_index, vf) == HDRTYPE_HDR10 ||
+					(get_source_type_by_sink_limit(vd_path, vpp_index, vf) == HDRTYPE_HDR10 ||
 					(get_hdr_policy() != 1 &&
-					get_source_type(vd_path, vpp_index, vf) == HDRTYPE_SDR))) {
+					get_source_type_by_sink_limit(vd_path, vpp_index, vf) == HDRTYPE_SDR))) {
 					send_fake_frame = true;
 					video_process_status[vd_path] = HDR_MODULE_ON;
 					pr_csc(12, "dv on and sbtm[vd%d] on, set HDR_MODULE_ON.\n",
@@ -10303,7 +10319,7 @@ void get_source_csc_info(int vpp_index, int *source_type, int *csc_type)
 	if (!source_type || !csc_type)
 		return;
 
-	*source_type = get_source_type(VD1_PATH, vpp_index, NULL);
+	*source_type = get_source_type_by_sink_limit(VD1_PATH, vpp_index, NULL);
 	*csc_type = get_csc_type();
 }
 
