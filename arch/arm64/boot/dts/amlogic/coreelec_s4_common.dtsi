@@ -15,6 +15,10 @@
 		};
 	};
 
+	gpu:bifrost {
+		compatible = "arm,mali-bifrost";
+	};
+
 	/delete-node/ auge_sound;
 	auge_sound {
 		compatible = "amlogic, auge-sound-card";
