@@ -1,0 +1,7 @@
+#include "sm1_s905x3_odroid_c4_4g.dts"
+#include "coreelec_meson_fb_2g.dtsi"
+
+/{
+	amlogic-dt-id = "sm1_ac213_2g";
+	coreelec-dt-id = "sm1_s905x3_odroid_c4_2g";
+};
