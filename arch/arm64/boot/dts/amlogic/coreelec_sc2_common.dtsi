@@ -157,3 +157,7 @@
 &sd_emmc_b {
 	status = "okay";
 };
+
+&clkc {
+	compatible = "amlogic,sc2-clkc-secure";
+};
