@@ -1,0 +1,8 @@
+#include "g12a_s905x2_u212.dts"
+#include "coreelec_g12a_common.dtsi"
+#include "coreelec_meson_fb_2g.dtsi"
+
+/{
+	model = "Amlogic";
+	coreelec-dt-id = "g12a_s905x2_2g";
+};
