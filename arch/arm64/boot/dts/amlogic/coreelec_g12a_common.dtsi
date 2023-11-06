@@ -1,0 +1,137 @@
+#include "coreelec_common.dtsi"
+
+/ {
+	/delete-node/ ir@0xff808040;
+	/delete-node/ optee;
+	/delete-node/ power-domains@0xff62fcc0;
+
+	amhdmitx: amhdmitx{
+		status = "okay";
+		vend_data: vend_data{ /* Should modified by Customer */
+			product_desc = "G12A"; /* Max Chars: 16 */
+		};
+	};
+
+	secmon {
+		clear_range = <0x05100000 0x02a00000>;
+	};
+
+	gpioleds {
+		/delete-node/ net_red;
+		/delete-node/ net_green;
+		/delete-node/ remote_led;
+	};
+
+	meson-ir {
+		reg = <0x0 0xff808040 0x00 0x44>, /*Multi-format IR controller*/
+			<0x0 0xff808000 0x00 0x20>; /*Legacy IR controller*/
+		interrupts = <GIC_SPI 196 IRQ_TYPE_EDGE_RISING>;
+	};
+
+	meson-remote {
+		reg = <0x0 0xff808040 0x00 0x44>, /*Multi-format IR controller*/
+			<0x0 0xff808000 0x00 0x20>; /*Legacy IR controller*/
+		interrupts = <GIC_SPI 196 IRQ_TYPE_EDGE_RISING>;
+	};
+
+	/delete-node/ auge_sound;
+	auge_sound {
+		compatible = "amlogic, auge-sound-card";
+		aml-audio-card,name = "AML-AUGESOUND";
+
+		/*avout mute gpio*/
+		avout_mute-gpios = <&gpio_ao GPIOAO_2 GPIO_ACTIVE_HIGH>;
+
+		aml-audio-card,dai-link@0 {
+			mclk-fs = <128>;
+			continuous-clock;
+			cpu {
+				system-clock-frequency = <6144000>;
+				sound-dai = <&spdifb>;
+			};
+			codec {
+				sound-dai = <&spdifb>;
+			};
+		};
+
+		aml-audio-card,dai-link@1 {
+			format = "i2s";
+			mclk-fs = <256>;
+			bitclock-master = <&tdmb>;
+			frame-master = <&tdmb>;
+			continuous-clock;
+			cpu {
+				dai-tdm-slot-tx-mask = <1 1>;
+				dai-tdm-slot-rx-mask = <1 1>;
+				dai-tdm-slot-num = <2>;
+				dai-tdm-slot-width = <32>;
+				system-clock-frequency = <12288000>;
+				sound-dai = <&tdmb>;
+			};
+			codec {
+				sound-dai = <&tdmb>;
+			};
+		};
+
+		aml-audio-card,dai-link@2 {
+			mclk-fs = <128>;
+			continuous-clock;
+			cpu {
+				system-clock-frequency = <6144000>;
+				sound-dai = <&spdifa>;
+			};
+			codec {
+				sound-dai = <&spdifa>;
+			};
+		};
+
+		aml-audio-card,dai-link@3 {
+			format = "i2s";
+			mclk-fs = <256>;
+			bitclock-master = <&aml_i2s2hdmi>;
+			frame-master = <&aml_i2s2hdmi>;
+			continuous-clock;
+			cpu {
+				sound-dai = <&aml_i2s2hdmi>;
+				dai-tdm-slot-tx-mask = <1 1>;
+				dai-tdm-slot-rx-mask = <1 1>;
+				dai-tdm-slot-num = <2>;
+				dai-tdm-slot-width = <32>;
+				system-clock-frequency = <12288000>;
+			};
+			codec {
+				sound-dai = <&dummy_codec>;
+			};
+		};
+	};
+
+	soc {
+		periphs: periphs@ff634400 {
+			status = "okay";
+		};
+	};
+};
+
+&drm_vpu {
+	status = "okay";
+};
+
+&audiobus {
+	aml_i2s2hdmi: i2s2hdmi {
+		compatible = "amlogic, g12a-snd-tdmc";
+	};
+
+	tdmb: tdm@1 {
+		/delete-property/ start_clk_enable;
+		/delete-property/ clk_tuning_enable;
+	};
+
+	spdifa: spdif@0 {
+		pinctrl-0 = <&spdifout>;
+		/delete-property/ clk_tuning_enable;
+	};
+};
+
+&dwc2_a {
+	controller-type = <3>;
+};
