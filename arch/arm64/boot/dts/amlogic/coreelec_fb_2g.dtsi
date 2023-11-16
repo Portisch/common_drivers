@@ -1,0 +1,12 @@
+&logo_reserved {
+	reg = <0x0 0x3d800000 0x0 0x800000>;
+	/delete-property/ alloc-ranges;
+};
+
+&fb {
+	logo_addr = "0x3d800000";
+};
+
+&drm_vpu {
+	logo_addr = "0x3d800000";
+};
