@@ -2574,7 +2574,7 @@ static void set_aud_chnls(struct aud_para *audio_param)
 		aud_csb_sampfreq[audio_param->rate], 0, 4); /*CSB 27:24*/
 	hdmitx_set_reg_bits(HDMITX_DWC_FC_AUDSCHNLS7, 0x0, 6, 2); /*CSB 31:30*/
 	hdmitx_set_reg_bits(HDMITX_DWC_FC_AUDSCHNLS7, 0x0, 4, 2); /*CSB 29:28*/
-	switch (audio_param->sample_size) {
+	switch (audio_param->size) {
 		case SS_16BITS:
 			hdmitx_set_reg_bits(HDMITX_DWC_FC_AUDSCHNLS8, 0x2, 0, 4); /*CSB 35:32*/
 			break;
