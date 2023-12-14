@@ -2215,7 +2215,8 @@ void hdmitx_set_enc_hw(struct hdmitx_dev *hdev)
 		break;
 	}
 
-	switch (hdev->cur_video_param->color_depth) {
+	//switch (hdev->cur_video_param->color_depth) {
+	switch (para->cd) {
 	case COLORDEPTH_30B:
 	case COLORDEPTH_36B:
 	case COLORDEPTH_48B:
