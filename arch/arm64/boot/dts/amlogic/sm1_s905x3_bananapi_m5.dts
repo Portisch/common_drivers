@@ -7,7 +7,7 @@
 
 	/delete-node/ rtc;
 	/delete-node/ bt-dev;
-	/delete-node/ wifi;
+	/delete-node/ aml_wifi;
 	/delete-node/ wifi_pwm_conf;
 	/delete-node/ unifykey;
 
