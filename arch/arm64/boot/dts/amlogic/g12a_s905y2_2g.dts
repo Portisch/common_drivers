@@ -13,6 +13,7 @@
 
 &pinctrl_periphs {
 	/delete-node/ spdifout;
+	/delete-node/ spdifout_a_mute;
 };
 
 &pinctrl_aobus {
