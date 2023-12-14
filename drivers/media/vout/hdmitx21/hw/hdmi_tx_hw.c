@@ -1479,8 +1479,8 @@ static int hdmitx_set_audmode(struct hdmitx_hw_common *tx_hw,
 
 	hdmitx21_set_reg_bits(HDMITX_TOP_CLK_CNTL, 1 - audio_param->aud_src_if, 13, 1);
 
-	HDMITX_INFO("hdmitx aud_src_if = %d, audio_param->chs = %u, hdev->aud_output_ch = %u\n",
-		audio_param->aud_src_if, audio_param->chs, hdev->aud_output_ch);
+	//HDMITX_INFO("hdmitx aud_src_if = %d, audio_param->chs = %u, hdev->aud_output_ch = %u\n",
+	//	audio_param->aud_src_if, audio_param->chs, hdev->aud_output_ch);
 
 	// config I2S
 	//---------------
