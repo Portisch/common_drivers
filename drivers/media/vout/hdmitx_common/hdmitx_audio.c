@@ -838,14 +838,16 @@ void hdmitx_audio_notify_callback(struct hdmitx_common *tx_comm,
 
 	if (tx_aud_param->chs != (aud_param->chs - 1)) {
 		int ch_num = aud_param->chs;
-		int ch_msk = (1 << (ch_num / 2)) - 1;
+		//int ch_msk = (1 << (ch_num / 2)) - 1;
 
 		HDMITX_INFO("aout notify channel num: %d\n", ch_num);
 		tx_aud_param->chs = ch_num - 1;
+		/*
 		if ((cmd == CT_PCM) && ch_num && (ch_num % 2 == 0))
 			hdev->aud_output_ch = ((ch_num << 4) & 0xf0) | (ch_msk & 0xf);
 		else
 			hdev->aud_output_ch = 0;
+			*/
 		audio_param_update_flag = 1;
 	}
 	if (tx_aud_param->aud_src_if != aud_param->aud_src_if) {
