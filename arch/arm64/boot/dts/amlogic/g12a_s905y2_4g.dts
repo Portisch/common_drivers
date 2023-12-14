@@ -1,5 +1,5 @@
 #include "g12a_s905y2_2g.dts"
-#include "coreelec_meson_fb_4g.dtsi"
+#include "coreelec_fb_4g.dtsi"
 
 /{
 	coreelec-dt-id = "g12a_s905y2_4g";
