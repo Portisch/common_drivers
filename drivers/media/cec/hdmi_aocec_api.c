@@ -38,7 +38,7 @@
 #include <linux/pm_wakeirq.h>
 #include <linux/pm.h>
 #include <linux/amlogic/cpu_version.h>
-#include <linux/amlogic/media/vout/hdmi_tx/hdmi_tx_module.h>
+#include <hdmitx_boot_parameters.h>
 #include <linux/amlogic/pm.h>
 #include <linux/amlogic/aml_mbox.h>
 #include "hdmi_aocec_api.h"
