@@ -51,10 +51,10 @@
 			continuous-clock;
 			cpu {
 				system-clock-frequency = <6144000>;
-				sound-dai = <&spdifb>;
+				sound-dai = <&aml_spdif_b>;
 			};
 			codec {
-				sound-dai = <&spdifb>;
+				sound-dai = <&aml_spdif_b>;
 			};
 		};
 
@@ -70,10 +70,10 @@
 				dai-tdm-slot-num = <2>;
 				dai-tdm-slot-width = <32>;
 				system-clock-frequency = <12288000>;
-				sound-dai = <&tdmb>;
+				sound-dai = <&aml_tdmb>;
 			};
 			codec {
-				sound-dai = <&tdmb>;
+				sound-dai = <&aml_tdmb>;
 			};
 		};
 
@@ -82,10 +82,10 @@
 			continuous-clock;
 			cpu {
 				system-clock-frequency = <6144000>;
-				sound-dai = <&spdifa>;
+				sound-dai = <&aml_spdif>;
 			};
 			codec {
-				sound-dai = <&spdifa>;
+				sound-dai = <&aml_spdif>;
 			};
 		};
 
@@ -121,16 +121,12 @@
 };
 
 &audiobus {
-	aml_i2s2hdmi: i2s2hdmi {
-		compatible = "amlogic, g12a-snd-tdmc";
-	};
-
-	tdmb: tdm@1 {
+	aml_tdmb: tdmb {
 		/delete-property/ start_clk_enable;
 		/delete-property/ clk_tuning_enable;
 	};
 
-	spdifa: spdif@0 {
+	aml_spdif: spdif {
 		pinctrl-0 = <&spdifout>;
 		/delete-property/ clk_tuning_enable;
 	};
