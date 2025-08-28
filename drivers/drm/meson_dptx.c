@@ -275,18 +275,55 @@ static void meson_dptx_atomic_print_state(struct drm_printer *p,
 {
 }
 
+static ssize_t venc_cfg_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	return sysfs_emit(buf, "no support show\n");
+}
+
+static ssize_t venc_cfg_store(struct device *dev, struct device_attribute *attr,
+			      const char *buf, size_t count)
+{
+	struct drm_connector *connector = dev_get_drvdata(dev);
+	struct dptx_common *dptx_comm = connector_to_dptx_common(connector);
+	struct meson_dp_tx *meson_dptx = connector_to_meson_dptx(connector);
+
+	if (buf[0] != '0' && buf[0] != '1')
+		return -EINVAL;
+
+	if (buf[0] == '1') {
+		meson_venc_mode_set(meson_dptx->venc, meson_dptx->enc_idx,
+				     VENC_ENCP, &dptx_comm->base.sw_fmt_para);
+		DRM_INFO("enable venc cfg\n");
+	} else if (buf[0] == '0') {
+		meson_venc_mode_disable(meson_dptx->venc, meson_dptx->enc_idx);
+		DRM_INFO("disable venc cfg\n");
+	} else {
+		return -EINVAL;
+	}
+
+	return count;
+}
+static DEVICE_ATTR_RW(venc_cfg);
+
 static int meson_dptx_late_register(struct drm_connector *connector)
 {
+	int ret;
 	struct dptx_common *dptx_comm = connector_to_dptx_common(connector);
 
 	meson_tx_sysfs_create(&dptx_comm->base);
-	return 0;
+
+	ret = device_create_file(connector->kdev, &dev_attr_venc_cfg);
+	if (ret)
+		DRM_ERROR("Failed to create sysfs node: %d\n", ret);
+
+	return ret;
 }
 
 static void meson_dptx_early_unregister(struct drm_connector *connector)
 {
 	struct dptx_common *dptx_comm = connector_to_dptx_common(connector);
 
+	device_remove_file(connector->kdev, &dev_attr_venc_cfg);
 	meson_tx_sysfs_remove(&dptx_comm->base);
 }
 
@@ -341,6 +378,9 @@ static void meson_dptx_encoder_atomic_enable(struct drm_encoder *encoder,
 
 	meson_vout_notify_mode_change(amcrtc->vout_index,
 				      meson_crtc_state->vmode, EVENT_MODE_SET_START);
+	/* assume hdmi_if_index = venc_idx by default */
+	meson_tx_build_clk_param(tx_dev, &dptx_conn_state->base_state.para,
+		meson_dptx->enc_idx, meson_dptx->enc_idx);
 	meson_tx_do_mode_setting(tx_dev, &dptx_conn_state->base_state,
 				 &old_dptx_conn_state->base_state);
 	meson_venc_mode_set(meson_dptx->venc, meson_dptx->enc_idx, VENC_ENCP,
@@ -399,7 +439,7 @@ static int meson_dptx_encoder_atomic_check(struct drm_encoder *encoder,
 				  bitdepth_to_colordepth(attr->bitdepth), 0);
 	ret = meson_tx_validate_mode(&dptx_comm->base, tx_state);
 	if (!ret)
-		meson_crtc_state->preset_vmode = VMODE_DisplayPort;
+		meson_crtc_state->preset_vmode = VMODE_DPTX;
 	else
 		DRM_ERROR("%s validate fail %d\n", __func__, ret);
 
