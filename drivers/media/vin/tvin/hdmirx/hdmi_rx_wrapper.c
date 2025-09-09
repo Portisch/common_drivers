@@ -414,7 +414,7 @@ void hdmirx_fsm_var_init(void)
 		pll_unlock_max = 30;
 		//do not to check colorspace changes
 		//Vdin can adapt it automatically
-		stable_check_lvl = 0x7c3;
+		stable_check_lvl = 0x3c3;
 		pll_lock_max = 2;
 		err_cnt_sum_max = 10;
 		sig_unstable_max = 20;
@@ -443,7 +443,7 @@ void hdmirx_fsm_var_init(void)
 		pll_unlock_max = 30;
 		//do not to check colorspace changes
 		//Vdin can adapt it automatically
-		stable_check_lvl = 0x6c3;
+		stable_check_lvl = 0x2c3;
 		pll_lock_max = 2;
 		err_cnt_sum_max = 10;
 		sig_unstable_max = 20;
@@ -474,7 +474,7 @@ void hdmirx_fsm_var_init(void)
 		pll_unlock_max = 30;
 		//do not to check colorspace changes
 		//Vdin can adapt it automatically
-		stable_check_lvl = 0x7c3;
+		stable_check_lvl = 0x3c3;
 		pll_lock_max = 2;
 		err_cnt_sum_max = 10;
 		sig_unstable_max = 20;
@@ -2392,7 +2392,7 @@ bool rx_is_nosig(u8 port)
 	return rx[port].no_signal;
 }
 
-static bool rx_is_avi_stable(u8 port)
+static bool rx_is_avi_and_cd_stable(u8 port)
 {
 	bool ret = true;
 
@@ -2418,6 +2418,14 @@ static bool rx_is_avi_stable(u8 port)
 				rx[port].pre.rgb_quant_range,
 				rx[port].cur.rgb_quant_range);
 		}
+	}
+
+	if (rx[port].pre.colordepth != rx[port].cur.colordepth) {
+		ret = false;
+		if (log_level & VIDEO_LOG)
+			rx_pr("colordepth(%d=>%d),",
+				rx[port].pre.colordepth,
+				rx[port].cur.colordepth);
 	}
 	return ret;
 }
@@ -4907,7 +4915,7 @@ void rx_main_state_machine(void)
 				rx_esm_reset(0);
 				break;
 			}
-		} else if (!rx_is_avi_stable(port)) {
+		} else if (!rx_is_avi_and_cd_stable(port)) {
 			//Color space changes, no need to do EQ training
 			skip_frame(skip_frame_cnt, port, "fsm color skip");
 			if (video_mute_enabled(port)) {
@@ -5359,7 +5367,7 @@ void rx_port0_main_state_machine(void)
 				rx[port].dump_aud_cnt = 0;
 				break;
 			}
-		} else if (!rx_is_avi_stable(port)) {
+		} else if (!rx_is_avi_and_cd_stable(port)) {
 			//Color space changes, no need to do EQ training
 			skip_frame(skip_frame_cnt, port, "fsm0 color skip");
 			if (video_mute_enabled(port))
@@ -5775,7 +5783,7 @@ void rx_port1_main_state_machine(void)
 				rx[port].dump_aud_cnt = 0;
 				break;
 			}
-		} else if (!rx_is_avi_stable(port)) {
+		} else if (!rx_is_avi_and_cd_stable(port)) {
 			//Color space changes, no need to do EQ training
 			skip_frame(skip_frame_cnt, port, "fsm1 color skip");
 			if (video_mute_enabled(port))
@@ -6350,7 +6358,7 @@ void rx_port2_main_state_machine(void)
 				rx[port].dump_aud_cnt = 0;
 				break;
 			}
-		} else if (!rx_is_avi_stable(port)) {
+		} else if (!rx_is_avi_and_cd_stable(port)) {
 			//Color space changes, no need to do EQ training
 			skip_frame(skip_frame_cnt, port, "fsm2 color skip");
 			if (video_mute_enabled(port))
@@ -6921,7 +6929,7 @@ void rx_port3_main_state_machine(void)
 				rx[port].dump_aud_cnt = 0;
 				break;
 			}
-		} else if (!rx_is_avi_stable(port)) {
+		} else if (!rx_is_avi_and_cd_stable(port)) {
 			//Color space changes, no need to do EQ training
 			skip_frame(skip_frame_cnt, port, "fsm3 color skip");
 			if (video_mute_enabled(port))
