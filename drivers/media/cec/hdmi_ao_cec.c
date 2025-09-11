@@ -2684,6 +2684,11 @@ static int aml_cec_probe(struct platform_device *pdev)
 	/*CEC_ERR("%s driver ver:%s\n", __func__, CEC_DRIVER_VERSION);*/
 	cec_dbg_init();
 
+	if (!cec_dev->dbg_dev) {
+		CEC_ERR("[%s] cec_dev->dbg_dev is null\n", __func__);
+		return -EINVAL;
+	}
+
 	/* cdev registe */
 	r = class_register(&aocec_class);
 	if (r) {
@@ -3274,6 +3279,11 @@ static int aml_cec_suspend_noirq(struct device *dev)
 	cec_dev->cec_info.power_status = CEC_PW_TRANS_ON_TO_STANDBY;
 	cec_dev->cec_suspend = CEC_PW_TRANS_ON_TO_STANDBY;
 
+	if (!cec_dev->dbg_dev) {
+		CEC_ERR("[%s] cec_dev->dbg_dev is null\n", __func__);
+		return -EINVAL;
+	}
+
 	#ifdef CEC_FREEZE_WAKE_UP
 	if (is_pm_s2idle_mode()) {
 		CEC_ERR("%s:freeze mode\n", __func__);
@@ -3348,6 +3358,11 @@ static int aml_cec_resume_noirq(struct device *dev)
 	int ret = 0;
 
 	CEC_ERR("cec resume noirq!\n");
+
+	if (!cec_dev->dbg_dev) {
+		CEC_ERR("[%s] cec_dev->dbg_dev is null\n", __func__);
+		return -EINVAL;
+	}
 
 	cec_dev->cec_info.power_status = CEC_PW_TRANS_STANDBY_TO_ON;
 	cec_dev->cec_suspend = CEC_PW_TRANS_STANDBY_TO_ON;
