@@ -521,7 +521,7 @@ void meson_tx_format_para_rst(struct meson_tx_format_para *para)
 	if (!para)
 		return;
 	memset(para, 0, sizeof(struct meson_tx_format_para));
-	para->name = "invalid";
+	memcpy(para->name, "invalid", sizeof("invalid"));
 	para->cs = HDMI_COLORSPACE_RESERVED4;
 	para->cd = COLORDEPTH_RESERVED;
 	para->cr = HDMI_QUANTIZATION_RANGE_RESERVED;
@@ -550,7 +550,6 @@ int meson_tx_format_para_init(struct meson_tx_dev *tx_dev, struct tx_timing *tim
 	else
 		para->timing = *timing;
 
-	para->name = para->timing.name;
 	para->cs = cs;
 	para->cd = cd;
 	para->cr = cr;
@@ -560,6 +559,20 @@ int meson_tx_format_para_init(struct meson_tx_dev *tx_dev, struct tx_timing *tim
 		para->frac_mode = 0;
 	else
 		para->frac_mode = frac_mode;
+	if (!para->timing.v_freq)
+		para->timing.v_freq = meson_tx_get_timing_vrefresh(&para->timing);
+	if (!para->timing.h_freq)
+		para->timing.h_freq =
+			DIV_ROUND_CLOSEST_ULL(mul_u32_u32(para->timing.pixel_freq, 1000),
+				para->timing.h_total);
+
+	if (para->timing.sname)
+		memcpy(para->name, para->timing.sname, sizeof(para->name));
+	else if (para->timing.name)
+		memcpy(para->name, para->timing.name, sizeof(para->name));
+	else
+		sprintf(para->name, "%dx%d%s%dhz", timing->h_active, timing->v_active,
+			timing->pi_mode ? "p" : "i", para->timing.v_freq / 1000);
 
 	/* build hw fmt_para */
 	if (tx_dev->ops->build_hw_fmt_para)
@@ -581,10 +594,6 @@ int meson_tx_validate_mode(struct meson_tx_dev *tx_dev, struct meson_tx_state *n
 		return -EINVAL;
 	}
 	new_sw_para = &new_state->para;
-	if (tx_dev->pxp_mode) {
-		TX_INFO(tx_log, "[%s]: treat mode valid in PXP\n", __func__);
-		return 0;
-	}
 
 	mutex_lock(&tx_dev->valid_mode_mutex);
 	ret = tx_dev->ops->validate_fmt_para(tx_dev, new_state);
@@ -614,10 +623,8 @@ EXPORT_SYMBOL(meson_tx_build_clk_param);
 
 int meson_tx_notify_hpd_status(struct meson_tx_dev *tx_dev, bool force_uevent)
 {
-	if (!tx_dev) {
-		TX_ERROR(NULL, "%s fail\n", __func__);
+	if (!tx_dev)
 		return -EINVAL;
-	}
 	if (!tx_dev->suspend_flag) {
 		/* notify to userspace by uevent */
 		meson_tx_event_mgr_send_uevent(tx_dev->event_mgr,
