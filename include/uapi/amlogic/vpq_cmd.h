@@ -6,12 +6,20 @@
 #ifndef __VPQ_CMD_H__
 #define __VPQ_CMD_H__
 
-#define VPQ_HIST_BIN_COUNT			(64)
-#define VPQ_COLOR_HIST_BIN_COUNT	(32)
+#define VPQ_HIST_BIN_COUNT          (64)
+#define VPQ_COLOR_HIST_BIN_COUNT    (32)
 #define VPQ_MTRX_COEF_LEN           (9)
 #define VPQ_MTRX_OFFSET_LEN         (3)
 #define VPQ_COLOR_PRIMARY_LEN       (8)
 #define VPQ_HDR_HIST_BIN_COUNT      (128)
+
+enum vpq_chip_type_e {
+	VPQ_CHIP_TYPE_NULL = 0,
+	VPQ_CHIP_TYPE_TV,
+	VPQ_CHIP_TYPE_STB,
+	VPQ_CHIP_TYPE_SMT,
+	VPQ_CHIP_TYPE_AD,
+};
 
 enum vpq_chip_id_e {
 	VPQ_CHIP_ID_NULL = 0,
@@ -19,9 +27,19 @@ enum vpq_chip_id_e {
 	VPQ_CHIP_ID_T3,
 	VPQ_CHIP_ID_T6W,
 	VPQ_CHIP_ID_T6X,
+	VPQ_CHIP_ID_MAX,
 };
 
-struct vpq_pqtable_bin_param_s {
+struct vpq_table_ver_info_s {
+	char project_ver[64];
+	char chip_ver[64];
+	char table_ver[64];
+	char oem_model[64];
+	char panel_index[64];
+	char reserved[64];
+};
+
+struct vpq_table_bin_param_s {
 	unsigned int index;
 	unsigned int len;
 	union {
@@ -30,7 +48,7 @@ struct vpq_pqtable_bin_param_s {
 	};
 };
 
-struct vpq_pqmodule_cfg_s {
+struct vpq_pq_module_cfg_s {
 	unsigned char pq_en;
 	unsigned char vadj1_en;
 	unsigned char vd1_ctrst_en;
@@ -88,7 +106,7 @@ enum vpq_module_e {
 	VPQ_MODULE_ALL,
 };
 
-struct vpq_pqmodule_status_s {
+struct vpq_pq_module_status_s {
 	enum vpq_module_e module;
 	int status;
 };
@@ -299,21 +317,21 @@ struct vpq_frame_info_s {
 	unsigned int reserved[8];
 };
 
-struct vpq_histgm_ave_s {
+struct vpq_hist_ave_s {
 	unsigned int sum;
 	int width;
 	int height;
 	int ave;
 };
 
-struct vpq_histgm_param_s {
+struct vpq_hist_param_s {
 	unsigned int hist_pow;
 	unsigned int luma_sum;
 	unsigned int pixel_sum;
-	unsigned int histgm[VPQ_HIST_BIN_COUNT];
-	unsigned int dark_histgm[VPQ_HIST_BIN_COUNT];
-	unsigned int hue_histgm[VPQ_COLOR_HIST_BIN_COUNT];
-	unsigned int sat_histgm[VPQ_COLOR_HIST_BIN_COUNT];
+	unsigned int hist[VPQ_HIST_BIN_COUNT];
+	unsigned int dark_hist[VPQ_HIST_BIN_COUNT];
+	unsigned int hue_hist[VPQ_COLOR_HIST_BIN_COUNT];
+	unsigned int sat_hist[VPQ_COLOR_HIST_BIN_COUNT];
 };
 
 struct vpq_hdr_hist_param_s {
@@ -344,6 +362,8 @@ enum vpq_source_type_e {
 	VPQ_SRC_TYPE_ATV,
 	VPQ_SRC_TYPE_CVBS,
 	VPQ_SRC_TYPE_HDMI,
+	VPQ_SRC_TYPE_DTV,
+	VPQ_SRC_TYPE_MAX,
 };
 
 enum vpq_hdmi_port_e {
@@ -365,7 +385,7 @@ enum vpq_hdr_type_e {
 	VPQ_HDR_TYPE_NONE = 0,
 	VPQ_HDR_TYPE_HDR10,
 	VPQ_HDR_TYPE_HDR10PLUS,
-	VPQ_HDR_TYPE_DOBVI,
+	VPQ_HDR_TYPE_AMDV,
 	VPQ_HDR_TYPE_PRIMESL,
 	VPQ_HDR_TYPE_HLG,
 	VPQ_HDR_TYPE_SDR,
@@ -382,13 +402,42 @@ struct vpq_signal_info_s {
 	enum vpq_source_type_e src_type;
 	enum vpq_hdmi_port_e hdmi_port;
 	enum vpq_sig_mode_e sig_mode;
-	enum vpq_hdr_type_e hdr_type;
 	enum vpq_scan_mode_e scan_mode;
+	enum vpq_hdr_type_e hdr_type;
+	unsigned int is_amdv;
+	unsigned int is_game;
+	unsigned int is_pc;
 	unsigned int sig_fmt; /* refer tvin_sig_fmt_e */
 	unsigned int trans_fmt; /* refer tvin_trans_fmt */
 	unsigned int height;
 	unsigned int width;
 	unsigned int fps;
+};
+
+struct vpq_dv_cfg_support_s {
+	int pic_mode_id;
+	int precision_detail;
+	int dark_detail;
+	int light_sense;
+};
+
+struct vpq_light_sensor_s {
+	int flag;
+	unsigned int t_frontLux;
+	unsigned int t_rearLum;
+};
+
+struct vpq_nonstandard_timing_map_s {
+	unsigned int width;
+	unsigned int height;
+	char hdr_string[32];
+	char src_string[32];
+	unsigned char timing_index;
+};
+
+struct vpq_nonstandard_timing_req_s {
+	unsigned char map_count;
+	struct vpq_nonstandard_timing_map_s maps[];
 };
 
 /* DPSS Start */
@@ -555,83 +604,124 @@ struct vpq_dct_param_s {
 	int param[DCT_MAX];
 };
 
+enum vpq_xlr_param_e {
+	XLR_EN,
+	XLR_SIDE_EN,
+	XLR_OOPLP_GAIN,
+	XLR_DISLP_THRD,
+	XLR_SIMLP_GAIN,
+	XLR_TXT_CORE,
+	XLR_ERR_THRD_2,
+	XLR_ERR_THRD_1,
+	XLR_ERR_THRD_0,
+	XLR_HCT_THR,
+	XLR_SAT_THR,
+	XLR_HMARGIN,
+	XLR_HCT_STEP,
+	XLR_HCT_LPF,
+	XLR_HPF_ONLY,
+	XLR_MAX,
+};
+
+struct vpq_xlr_param_s {
+	int param[XLR_MAX];
+};
+
 /* DPSS End */
 
 #define VPQ_DEVICE_NAME                  "vpq"
 #define VPQ_IOC_MAGIC                    'C'
 
 /* SET CMD */
-#define VPQ_IOC_SET_PQTABLE_PARAM         _IOW(VPQ_IOC_MAGIC, 0x00, struct vpq_pqtable_bin_param_s)
-#define VPQ_IOC_SET_PQ_MODULE_CFG         _IOW(VPQ_IOC_MAGIC, 0x01, struct vpq_pqmodule_cfg_s)
-#define VPQ_IOC_SET_PQ_MODULE_STATUS      _IOW(VPQ_IOC_MAGIC, 0x02, struct vpq_pqmodule_status_s)
-#define VPQ_IOC_SET_BRIGHTNESS            _IOW(VPQ_IOC_MAGIC, 0x03, int)
-#define VPQ_IOC_SET_CONTRAST              _IOW(VPQ_IOC_MAGIC, 0x04, int)
-#define VPQ_IOC_SET_SATURATION            _IOW(VPQ_IOC_MAGIC, 0x05, int)
-#define VPQ_IOC_SET_HUE                   _IOW(VPQ_IOC_MAGIC, 0x06, int)
-#define VPQ_IOC_SET_SHARPNESS             _IOW(VPQ_IOC_MAGIC, 0x07, int)
-#define VPQ_IOC_SET_BRIGHTNESS_POST       _IOW(VPQ_IOC_MAGIC, 0x08, int)
-#define VPQ_IOC_SET_CONTRAST_POST         _IOW(VPQ_IOC_MAGIC, 0x09, int)
-#define VPQ_IOC_SET_SATURATION_POST       _IOW(VPQ_IOC_MAGIC, 0x0a, int)
-#define VPQ_IOC_SET_HUE_POST              _IOW(VPQ_IOC_MAGIC, 0x0b, int)
-#define VPQ_IOC_SET_OVERSCAN_TABLE        _IOW(VPQ_IOC_MAGIC, 0x0c, struct vpq_overscan_table_s)
-#define VPQ_IOC_SET_BACKLIGHT             _IOW(VPQ_IOC_MAGIC, 0x0d, int)
-#define VPQ_IOC_SET_GAMMA_TABLE           _IOW(VPQ_IOC_MAGIC, 0x0e, struct vpq_gamma_vari_table_s)
-#define VPQ_IOC_SET_RGB_OGO               _IOW(VPQ_IOC_MAGIC, 0x0f, struct vpq_rgb_ogo_s)
-#define VPQ_IOC_SET_MATRIX_PARAM          _IOW(VPQ_IOC_MAGIC, 0x10, struct vpq_mtrx_info_s)
-#define VPQ_IOC_SET_COLOR_BASE            _IOW(VPQ_IOC_MAGIC, 0x11, unsigned char)
-#define VPQ_IOC_SET_COLOR_CUSTOMIZE       _IOW(VPQ_IOC_MAGIC, 0x12, struct vpq_cms_s)
-#define VPQ_IOC_SET_HDMI_COLOR_RANGE_MODE _IOW(VPQ_IOC_MAGIC, 0x13, unsigned char)
-#define VPQ_IOC_SET_COLOR_SPACE           _IOW(VPQ_IOC_MAGIC, 0x14, unsigned char)
-#define VPQ_IOC_SET_GLOBAL_DIMMING        _IOW(VPQ_IOC_MAGIC, 0x15, unsigned char)
-#define VPQ_IOC_SET_LOCAL_DIMMING         _IOW(VPQ_IOC_MAGIC, 0x16, unsigned char)
-#define VPQ_IOC_SET_BLACK_STRETCH         _IOW(VPQ_IOC_MAGIC, 0x17, unsigned char)
-#define VPQ_IOC_SET_BLUE_STRETCH          _IOW(VPQ_IOC_MAGIC, 0x18, unsigned char)
-#define VPQ_IOC_SET_DNLP_MODE             _IOW(VPQ_IOC_MAGIC, 0x19, unsigned char)
-#define VPQ_IOC_SET_LC_MODE               _IOW(VPQ_IOC_MAGIC, 0x1a, unsigned char)
-#define VPQ_IOC_SET_SR                    _IOW(VPQ_IOC_MAGIC, 0x1b, int)
-#define VPQ_IOC_SET_CSC_TYPE              _IOW(VPQ_IOC_MAGIC, 0x1c, enum vpq_csc_type_e)
-#define VPQ_IOC_SET_3DLUT_DATA            _IOW(VPQ_IOC_MAGIC, 0x1d, struct vpq_lut3d_table_s)
-#define VPQ_IOC_SET_HDR_TMO_MODE          _IOW(VPQ_IOC_MAGIC, 0x1e, unsigned char)
-#define VPQ_IOC_SET_HDR_TMO               _IOW(VPQ_IOC_MAGIC, 0x1f, struct vpq_hdr_lut_s)
-#define VPQ_IOC_SET_HDR_OETF              _IOW(VPQ_IOC_MAGIC, 0x20, struct vpq_hdr_lut_s)
-#define VPQ_IOC_SET_HDR_EOTF              _IOW(VPQ_IOC_MAGIC, 0x21, struct vpq_hdr_lut_s)
-#define VPQ_IOC_SET_HDR_CGAIN             _IOW(VPQ_IOC_MAGIC, 0x22, struct vpq_hdr_lut_s)
-#define VPQ_IOC_SET_AIPQ_MODE             _IOW(VPQ_IOC_MAGIC, 0x23, unsigned char)
-#define VPQ_IOC_SET_AISR_MODE             _IOW(VPQ_IOC_MAGIC, 0x24, unsigned char)
-#define VPQ_IOC_SET_CHROMA_CORING         _IOW(VPQ_IOC_MAGIC, 0x25, unsigned char)
-#define VPQ_IOC_SET_EYE_PROTECT           _IOW(VPQ_IOC_MAGIC, 0x26, struct vpq_eye_protect_s)
-#define VPQ_IOC_SET_CABC                  _IO(VPQ_IOC_MAGIC, 0x27)
-#define VPQ_IOC_SET_ADD                   _IO(VPQ_IOC_MAGIC, 0x28)
-#define VPQ_IOC_SET_PC_MODE               _IOW(VPQ_IOC_MAGIC, 0x29, enum vpq_pc_mode_e)
-#define VPQ_IOC_SET_COLOR_PRIMARY_STATUS  _IOW(VPQ_IOC_MAGIC, 0x2a, int)
-#define VPQ_IOC_SET_COLOR_PRIMARY         _IOW(VPQ_IOC_MAGIC, 0x2b, struct vpq_color_primary_s)
-#define VPQ_IOC_SET_FRAME_STATUS          _IOW(VPQ_IOC_MAGIC, 0x2c, enum vpq_frame_status_e)
-#define VPQ_IOC_SET_FRAME                 _IOW(VPQ_IOC_MAGIC, 0x2d, struct vpq_frame_info_s)
+#define VPQ_IOC_SET_TABLE_VERSION_INFO     _IOW(VPQ_IOC_MAGIC, 0x00, struct vpq_table_ver_info_s)
+#define VPQ_IOC_SET_TABLE_PARAM            _IOW(VPQ_IOC_MAGIC, 0x01, struct vpq_table_bin_param_s)
+#define VPQ_IOC_SET_NONSTANDARD_TIMING_MAP _IOW(VPQ_IOC_MAGIC, 0x02, \
+	struct vpq_nonstandard_timing_req_s)
+#define VPQ_IOC_SET_PQ_MODULE_CFG          _IOW(VPQ_IOC_MAGIC, 0x03, struct vpq_pq_module_cfg_s)
+#define VPQ_IOC_SET_PQ_MODULE_STATUS       _IOW(VPQ_IOC_MAGIC, 0x04, struct vpq_pq_module_status_s)
+#define VPQ_IOC_SET_BRIGHTNESS             _IOW(VPQ_IOC_MAGIC, 0x05, int)
+#define VPQ_IOC_SET_CONTRAST               _IOW(VPQ_IOC_MAGIC, 0x06, int)
+#define VPQ_IOC_SET_SATURATION             _IOW(VPQ_IOC_MAGIC, 0x07, int)
+#define VPQ_IOC_SET_HUE                    _IOW(VPQ_IOC_MAGIC, 0x08, int)
+#define VPQ_IOC_SET_SHARPNESS              _IOW(VPQ_IOC_MAGIC, 0x09, int)
+#define VPQ_IOC_SET_BRIGHTNESS_POST        _IOW(VPQ_IOC_MAGIC, 0x0a, int)
+#define VPQ_IOC_SET_CONTRAST_POST          _IOW(VPQ_IOC_MAGIC, 0x0b, int)
+#define VPQ_IOC_SET_SATURATION_POST        _IOW(VPQ_IOC_MAGIC, 0x0c, int)
+#define VPQ_IOC_SET_HUE_POST               _IOW(VPQ_IOC_MAGIC, 0x0d, int)
+#define VPQ_IOC_SET_OVERSCAN_TABLE         _IOW(VPQ_IOC_MAGIC, 0x0e, struct vpq_overscan_table_s)
+#define VPQ_IOC_SET_BACKLIGHT              _IOW(VPQ_IOC_MAGIC, 0x0f, int)
+#define VPQ_IOC_SET_GAMMA_TABLE            _IOW(VPQ_IOC_MAGIC, 0x10, struct vpq_gamma_vari_table_s)
+#define VPQ_IOC_SET_RGB_OGO                _IOW(VPQ_IOC_MAGIC, 0x11, struct vpq_rgb_ogo_s)
+#define VPQ_IOC_SET_MATRIX_PARAM           _IOW(VPQ_IOC_MAGIC, 0x12, struct vpq_mtrx_info_s)
+#define VPQ_IOC_SET_COLOR_BASE             _IOW(VPQ_IOC_MAGIC, 0x13, unsigned char)
+#define VPQ_IOC_SET_COLOR_CUSTOMIZE        _IOW(VPQ_IOC_MAGIC, 0x14, struct vpq_cms_s)
+#define VPQ_IOC_SET_HDMI_COLOR_RANGE_MODE  _IOW(VPQ_IOC_MAGIC, 0x15, unsigned char)
+#define VPQ_IOC_SET_COLOR_SPACE            _IOW(VPQ_IOC_MAGIC, 0x16, unsigned char)
+#define VPQ_IOC_SET_GLOBAL_DIMMING         _IOW(VPQ_IOC_MAGIC, 0x17, unsigned char)
+#define VPQ_IOC_SET_LOCAL_DIMMING          _IOW(VPQ_IOC_MAGIC, 0x18, unsigned char)
+#define VPQ_IOC_SET_BLACK_STRETCH          _IOW(VPQ_IOC_MAGIC, 0x19, unsigned char)
+#define VPQ_IOC_SET_BLUE_STRETCH           _IOW(VPQ_IOC_MAGIC, 0x1a, unsigned char)
+#define VPQ_IOC_SET_DNLP_MODE              _IOW(VPQ_IOC_MAGIC, 0x1b, unsigned char)
+#define VPQ_IOC_SET_LC_MODE                _IOW(VPQ_IOC_MAGIC, 0x1c, unsigned char)
+#define VPQ_IOC_SET_SR                     _IOW(VPQ_IOC_MAGIC, 0x1d, int)
+#define VPQ_IOC_SET_CSC_TYPE               _IOW(VPQ_IOC_MAGIC, 0x1e, enum vpq_csc_type_e)
+#define VPQ_IOC_SET_3DLUT_DATA             _IOW(VPQ_IOC_MAGIC, 0x1f, struct vpq_lut3d_table_s)
+#define VPQ_IOC_SET_HDR_TMO_MODE           _IOW(VPQ_IOC_MAGIC, 0x20, unsigned char)
+#define VPQ_IOC_SET_HDR_TMO                _IOW(VPQ_IOC_MAGIC, 0x21, struct vpq_hdr_lut_s)
+#define VPQ_IOC_SET_HDR_OETF               _IOW(VPQ_IOC_MAGIC, 0x22, struct vpq_hdr_lut_s)
+#define VPQ_IOC_SET_HDR_EOTF               _IOW(VPQ_IOC_MAGIC, 0x23, struct vpq_hdr_lut_s)
+#define VPQ_IOC_SET_HDR_CGAIN              _IOW(VPQ_IOC_MAGIC, 0x24, struct vpq_hdr_lut_s)
+#define VPQ_IOC_SET_AIPQ_MODE              _IOW(VPQ_IOC_MAGIC, 0x25, unsigned char)
+#define VPQ_IOC_SET_AISR_MODE              _IOW(VPQ_IOC_MAGIC, 0x26, unsigned char)
+#define VPQ_IOC_SET_CHROMA_CORING          _IOW(VPQ_IOC_MAGIC, 0x27, unsigned char)
+#define VPQ_IOC_SET_EYE_PROTECT            _IOW(VPQ_IOC_MAGIC, 0x28, struct vpq_eye_protect_s)
+#define VPQ_IOC_SET_CABC                   _IO(VPQ_IOC_MAGIC, 0x29)
+#define VPQ_IOC_SET_ADD                    _IO(VPQ_IOC_MAGIC, 0x2a)
+#define VPQ_IOC_SET_PC_MODE                _IOW(VPQ_IOC_MAGIC, 0x2b, enum vpq_pc_mode_e)
+#define VPQ_IOC_SET_COLOR_PRIMARY_STATUS   _IOW(VPQ_IOC_MAGIC, 0x2c, int)
+#define VPQ_IOC_SET_COLOR_PRIMARY          _IOW(VPQ_IOC_MAGIC, 0x2d, struct vpq_color_primary_s)
+#define VPQ_IOC_SET_FRAME_STATUS           _IOW(VPQ_IOC_MAGIC, 0x2e, enum vpq_frame_status_e)
+#define VPQ_IOC_SET_FRAME                  _IOW(VPQ_IOC_MAGIC, 0x2f, struct vpq_frame_info_s)
 
-#define VPQ_IOC_SET_NR                    _IOW(VPQ_IOC_MAGIC, 0x40, unsigned char)
-#define VPQ_IOC_SET_AUTO_NR               _IOW(VPQ_IOC_MAGIC, 0x41, unsigned char)
-#define VPQ_IOC_SET_DEBLOCK               _IOW(VPQ_IOC_MAGIC, 0x42, unsigned char)
-#define VPQ_IOC_SET_DEMOSQUITO            _IOW(VPQ_IOC_MAGIC, 0x43, unsigned char)
-#define VPQ_IOC_SET_SMOOTHPLUS_MODE       _IOW(VPQ_IOC_MAGIC, 0x44, unsigned char)
-#define VPQ_IOC_SET_MCDI_MODE             _IOW(VPQ_IOC_MAGIC, 0x45, unsigned char)
+#define VPQ_IOC_SET_NR                     _IOW(VPQ_IOC_MAGIC, 0x40, unsigned char)
+#define VPQ_IOC_SET_DEBLOCK                _IOW(VPQ_IOC_MAGIC, 0x42, unsigned char)
+#define VPQ_IOC_SET_DEMOSQUITO             _IOW(VPQ_IOC_MAGIC, 0x43, unsigned char)
+#define VPQ_IOC_SET_SMOOTHPLUS_MODE        _IOW(VPQ_IOC_MAGIC, 0x44, unsigned char)
+
+#define VPQ_IOC_SET_AMDV_PIC_MODE_ID       _IOW(VPQ_IOC_MAGIC, 0x50, unsigned char)
+/* 1: enable dv dark detail, 0: disable dv dark detail */
+#define VPQ_IOC_SET_AMDV_DARK_DETAIL       _IOW(VPQ_IOC_MAGIC, 0x51, unsigned char)
+#define VPQ_IOC_SET_AMDV_LIGHT_SENSE       _IOW(VPQ_IOC_MAGIC, 0x52, struct vpq_light_sensor_s)
+/* 1: precision detail bypass, 0: precision detail not bypass */
+#define VPQ_IOC_SET_AMDV_PRECISION_DETAIL  _IOW(VPQ_IOC_MAGIC, 0x53, unsigned char)
+
+#define VPQ_IOC_SET_MEMC_ON_OFF            _IOW(VPQ_IOC_MAGIC, 0x60, unsigned char)
+#define VPQ_IOC_SET_MEMC_DEBLUR_LEVEL      _IOW(VPQ_IOC_MAGIC, 0x61, unsigned char)
+#define VPQ_IOC_SET_MEMC_DEJUDDER_LEVEL    _IOW(VPQ_IOC_MAGIC, 0x62, unsigned char)
+#define VPQ_IOC_SET_MEMC_DMEO_MODE         _IOW(VPQ_IOC_MAGIC, 0x63, unsigned char)
+
+#define VPQ_IOC_SET_VDIN_CVD               _IO(VPQ_IOC_MAGIC, 0x70)
 
 /* GET CMD */
-#define VPQ_IOC_GET_CHIP_ID               _IOR(VPQ_IOC_MAGIC, 0x50, enum vpq_chip_id_e)
-#define VPQ_IOC_GET_PC_MODE               _IOR(VPQ_IOC_MAGIC, 0x51, enum vpq_pc_mode_e)
-#define VPQ_IOC_GET_HIST_AVG              _IOR(VPQ_IOC_MAGIC, 0x52, struct vpq_histgm_ave_s)
-#define VPQ_IOC_GET_HIST_BIN              _IOR(VPQ_IOC_MAGIC, 0x53, struct vpq_histgm_param_s)
-#define VPQ_IOC_GET_HDR_HIST              _IOR(VPQ_IOC_MAGIC, 0x54, struct vpq_hdr_hist_param_s)
-#define VPQ_IOC_GET_CSC_TYPE              _IOR(VPQ_IOC_MAGIC, 0x55, enum vpq_csc_type_e)
-#define VPQ_IOC_GET_COLOR_PRIM            _IOR(VPQ_IOC_MAGIC, 0x56, enum vpq_color_primary_e)
-#define VPQ_IOC_GET_HDR_METADATA          _IOR(VPQ_IOC_MAGIC, 0x57, struct vpq_hdr_metadata_s)
-#define VPQ_IOC_GET_EVENT_INFO	          _IOR(VPQ_IOC_MAGIC, 0x58, enum vpq_event_info_e)
-#define VPQ_IOC_GET_SIGNAL_INFO           _IOR(VPQ_IOC_MAGIC, 0x59, struct vpq_signal_info_s)
+#define VPQ_IOC_GET_CHIP_TYPE              _IOR(VPQ_IOC_MAGIC, 0x80, enum vpq_chip_type_e)
+#define VPQ_IOC_GET_CHIP_ID                _IOR(VPQ_IOC_MAGIC, 0x81, enum vpq_chip_id_e)
+#define VPQ_IOC_GET_PC_MODE                _IOR(VPQ_IOC_MAGIC, 0x82, enum vpq_pc_mode_e)
+#define VPQ_IOC_GET_HIST_AVG               _IOR(VPQ_IOC_MAGIC, 0x83, struct vpq_hist_ave_s)
+#define VPQ_IOC_GET_HIST_BIN               _IOR(VPQ_IOC_MAGIC, 0x84, struct vpq_hist_param_s)
+#define VPQ_IOC_GET_HDR_HIST               _IOR(VPQ_IOC_MAGIC, 0x85, struct vpq_hdr_hist_param_s)
+#define VPQ_IOC_GET_CSC_TYPE               _IOR(VPQ_IOC_MAGIC, 0x86, enum vpq_csc_type_e)
+#define VPQ_IOC_GET_COLOR_PRIM             _IOR(VPQ_IOC_MAGIC, 0x87, enum vpq_color_primary_e)
+#define VPQ_IOC_GET_HDR_METADATA           _IOR(VPQ_IOC_MAGIC, 0x88, struct vpq_hdr_metadata_s)
+#define VPQ_IOC_GET_EVENT_INFO             _IOR(VPQ_IOC_MAGIC, 0x89, enum vpq_event_info_e)
+#define VPQ_IOC_GET_SIGNAL_INFO            _IOR(VPQ_IOC_MAGIC, 0x8A, struct vpq_signal_info_s)
+#define VPQ_IOC_GET_DV_CFG_SUPPORT         _IOWR(VPQ_IOC_MAGIC, 0x8B, struct vpq_dv_cfg_support_s)
 
 /* DPSS Start */
 #define VPQ_IOC_SET_NR_DPSS               _IOW(VPQ_IOC_MAGIC, 0x100, struct vpq_dnr_param_s)
 #define VPQ_IOC_SET_DEBLOCK_DPSS          _IOW(VPQ_IOC_MAGIC, 0x101, struct vpq_dblk_param_s)
 #define VPQ_IOC_SET_DEMOSQUITO_DPSS       _IOW(VPQ_IOC_MAGIC, 0x102, struct vpq_demosquito_param_s)
 #define VPQ_IOC_SET_SMOOTHPLUS_DPSS       _IOW(VPQ_IOC_MAGIC, 0x103, struct vpq_dct_param_s)
+#define VPQ_IOC_SET_XLR_DPSS              _IOW(VPQ_IOC_MAGIC, 0x104, struct vpq_xlr_param_s)
 /* DPSS End */
 
 #endif
