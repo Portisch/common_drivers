@@ -11074,6 +11074,9 @@ void vpp_blend_update_t7(const struct vinfo_s *vinfo)
 				vpu_delay_work_flag |=
 					VPU_VIDEO_LAYER3_CHANGED;
 #endif
+#ifdef CONFIG_AMLOGIC_MEDIA_LUT_DMA
+				fgrain_stop(&vd_layer[2], vd_layer[2].vpp_index);
+#endif
 				if (vd_layer[2].global_debug & DEBUG_FLAG_BASIC_INFO)
 					pr_info("VIDEO: VsyncDisableVideoLayer2\n");
 				video3_off_req = 1;
@@ -11582,6 +11585,9 @@ static void vpp_blend_update_s5(const struct vinfo_s *vinfo, u8 vpp_index)
 			vd_layer[0].onoff_time = jiffies_to_msecs(jiffies);
 			vpu_delay_work_flag |=
 				VPU_VIDEO_LAYER1_CHANGED;
+#ifdef CONFIG_AMLOGIC_MEDIA_LUT_DMA
+			fgrain_stop(&vd_layer[0], vd_layer[0].vpp_index);
+#endif
 			if (vd_layer[0].global_debug & DEBUG_FLAG_BASIC_INFO)
 				pr_info("VIDEO: VsyncDisableVideoLayer\n");
 			video1_off_req = 1;
@@ -11635,6 +11641,9 @@ static void vpp_blend_update_s5(const struct vinfo_s *vinfo, u8 vpp_index)
 				vd_layer[1].onoff_time = jiffies_to_msecs(jiffies);
 				vpu_delay_work_flag |=
 					VPU_VIDEO_LAYER2_CHANGED;
+#ifdef CONFIG_AMLOGIC_MEDIA_LUT_DMA
+				fgrain_stop(&vd_layer[1], vd_layer[1].vpp_index);
+#endif
 				if (vd_layer[1].global_debug & DEBUG_FLAG_BASIC_INFO)
 					pr_info("VIDEO: VsyncDisableVideoLayer2\n");
 				video2_off_req = 1;
@@ -11692,6 +11701,9 @@ static void vpp_blend_update_s5(const struct vinfo_s *vinfo, u8 vpp_index)
 				vd_layer[2].onoff_time = jiffies_to_msecs(jiffies);
 				vpu_delay_work_flag |=
 					VPU_VIDEO_LAYER3_CHANGED;
+#ifdef CONFIG_AMLOGIC_MEDIA_LUT_DMA
+				fgrain_stop(&vd_layer[2], vd_layer[2].vpp_index);
+#endif
 				if (vd_layer[2].global_debug & DEBUG_FLAG_BASIC_INFO)
 					pr_info("VIDEO: VsyncDisableVideoLayer2\n");
 				video3_off_req = 1;
@@ -11965,6 +11977,9 @@ void vpp_blend_update(const struct vinfo_s *vinfo, u8 vpp_index)
 			vpu_delay_work_flag |=
 				VPU_VIDEO_LAYER1_CHANGED;
 #endif
+#ifdef CONFIG_AMLOGIC_MEDIA_LUT_DMA
+			fgrain_stop(&vd_layer[0], vd_layer[0].vpp_index);
+#endif
 			if (vd_layer[0].global_debug & DEBUG_FLAG_BASIC_INFO)
 				pr_info("VIDEO: VsyncDisableVideoLayer\n");
 			video1_off_req = 1;
@@ -12048,6 +12063,9 @@ void vpp_blend_update(const struct vinfo_s *vinfo, u8 vpp_index)
 #ifdef CONFIG_AMLOGIC_VPU
 			vpu_delay_work_flag |=
 				VPU_VIDEO_LAYER2_CHANGED;
+#endif
+#ifdef CONFIG_AMLOGIC_MEDIA_LUT_DMA
+			fgrain_stop(&vd_layer[1], vd_layer[1].vpp_index);
 #endif
 			if (vd_layer[1].global_debug & DEBUG_FLAG_BASIC_INFO)
 				pr_info("VIDEO: VsyncDisableVideoLayer2\n");
