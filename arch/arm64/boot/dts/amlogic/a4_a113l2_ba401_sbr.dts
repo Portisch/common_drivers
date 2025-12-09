@@ -1678,3 +1678,6 @@
 	status = "disabled";
 };
 
+&chosen {
+		bootargs = "swiotlb=noforce";
+};

@@ -1386,7 +1386,7 @@
 		};
 	};
 
-	chosen {
+	chosen: chosen {
 	};
 
 	aml_mkl {
