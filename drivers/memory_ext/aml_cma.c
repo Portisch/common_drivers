@@ -2209,7 +2209,6 @@ static int __init aml_cma_init(void)
 
 	dentry = proc_create("cma_debug", 0644, NULL, &cma_dbg_file_ops);
 	if (IS_ERR_OR_NULL(dentry)) {
-		pr_err("%s, create sysfs failed\n", __func__);
 		return -1;
 	}
 	return 0;
@@ -2469,13 +2468,12 @@ static int __nocfi common_symbol_init(void *data)
 
 	ret = register_trace_android_vh_cma_alloc_bypass(aml_cma_alloc, NULL);
 	if (ret) {
-		pr_err("register cma alloc vendor hook failed, returned %d\n", ret);
 		return 1;
 	}
 
 	ret = register_trace_android_vh_isolate_freepages(aml_bypass_cma_page, NULL);
 	if (ret)
-		pr_err("register_trace_android_vh_isolate_freepages fail ret=%d\n", ret);
+		return 1;
 
 	return 0;
 }
@@ -2487,7 +2485,6 @@ static int __init aml_cma_module_init(void)
 
 	dentry = proc_create("cma_debug", 0644, NULL, &cma_dbg_file_ops);
 	if (IS_ERR_OR_NULL(dentry)) {
-		pr_err("%s, create sysfs failed\n", __func__);
 		return -1;
 	}
 
