@@ -1,3 +1,7 @@
+#bringup
+  trace_buffer
+  trace_step
+
 #memory
   stack_depot_fetch
   seq_release_private
