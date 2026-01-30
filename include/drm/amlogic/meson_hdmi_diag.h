@@ -75,7 +75,7 @@ struct hdmi_scdc_info {
 	__u8 scrambling_enable;
 	__u32 tmds_bit_clock_ratio;
 	char scrambling_status[10];
-	__u32 clock_detecded;
+	__u32 clock_detected;
 	__u32 ch0_lock;
 	__u32 ch1_lock;
 	__u32 ch2_lock;

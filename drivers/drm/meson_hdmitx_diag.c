@@ -573,7 +573,7 @@ static void hdmitx_scdc_diag_info(struct hdmi_diagnosis_info *diagnosis_info,
 	diagnosis_info->scdc_info.tmds_bit_clock_ratio = tx_comm->fmt_para.tmds_clk_div40;
 	strncpy(diagnosis_info->scdc_info.scrambling_status, scrambler_en ? "ok" : "disable",
 			sizeof(diagnosis_info->scdc_info.scrambling_status) - 1);
-	diagnosis_info->scdc_info.clock_detecded = tx_comm->ch_locked_st.clock_detected;
+	diagnosis_info->scdc_info.clock_detected = tx_comm->ch_locked_st.clock_detected;
 	diagnosis_info->scdc_info.ch0_lock = tx_comm->ch_locked_st.ch0_locked;
 	diagnosis_info->scdc_info.ch1_lock = tx_comm->ch_locked_st.ch1_locked;
 	diagnosis_info->scdc_info.ch2_lock = tx_comm->ch_locked_st.ch2_locked;
