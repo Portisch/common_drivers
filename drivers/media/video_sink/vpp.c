@@ -3551,6 +3551,7 @@ RESTART:
 		vdin_need_hsize_align(w_in, h_in)) {
 		u32 align_val = 4;
 		u32 aligned_end, aligned_size;
+		u32 new_phase_step;
 
 		if (next_frame_par->VPP_line_in_length_ % 4) {
 			aligned_size = round_down
@@ -3563,6 +3564,11 @@ RESTART:
 					next_frame_par->VPP_hd_end_lines_, aligned_end,
 					next_frame_par->VPP_line_in_length_, aligned_size,
 					align_val);
+			/* refresh parameters */
+			new_phase_step = filter->vpp_hsc_start_phase_step;
+			new_phase_step = (new_phase_step * aligned_size) /
+					next_frame_par->VPP_line_in_length_;
+			filter->vpp_hsc_start_phase_step = new_phase_step;
 			next_frame_par->VPP_line_in_length_ = aligned_size;
 			next_frame_par->VPP_hd_end_lines_ = aligned_end;
 		}
@@ -6615,6 +6621,7 @@ RESTART:
 		vdin_need_hsize_align(w_in, h_in)) {
 		u32 align_val = 4;
 		u32 aligned_end, aligned_size;
+		u32 new_phase_step;
 
 		if (next_frame_par->VPP_line_in_length_ % 4) {
 			aligned_size = round_down
@@ -6627,6 +6634,11 @@ RESTART:
 					next_frame_par->VPP_hd_end_lines_, aligned_end,
 					next_frame_par->VPP_line_in_length_, aligned_size,
 					align_val);
+			/* refresh parameters */
+			new_phase_step = filter->vpp_hsc_start_phase_step;
+			new_phase_step = (new_phase_step * aligned_size) /
+					next_frame_par->VPP_line_in_length_;
+			filter->vpp_hsc_start_phase_step = new_phase_step;
 			next_frame_par->VPP_line_in_length_ = aligned_size;
 			next_frame_par->VPP_hd_end_lines_ = aligned_end;
 		}
