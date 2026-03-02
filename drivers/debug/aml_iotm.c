@@ -384,7 +384,10 @@ EXPORT_SYMBOL(iotm_sw_record_write);
 
 static void print_ddr_buf(int *cnt, int trace_cnt, void *trace_start, void *trace_end)
 {
-	char buf[TRACE_BUF_SIZE] = "";
+	char *buf = kzalloc(TRACE_BUF_SIZE, GFP_KERNEL);
+
+	if (!buf)
+		return;
 
 	while (trace_start < trace_end) {
 		if (*cnt > trace_cnt) {
@@ -395,6 +398,7 @@ static void print_ddr_buf(int *cnt, int trace_cnt, void *trace_start, void *trac
 		(*cnt)++;
 		trace_start += iotm.bytes_per_trace;
 	}
+	kfree(buf);
 }
 
 /* Ddr buffer can't be confirmed to have been overwritten.
@@ -488,7 +492,10 @@ static void auto_dump_etb_buf(void)
 	int i, j;
 	int words_per_trace = iotm.bytes_per_trace / sizeof(u32);
 	u32 iotm_trace[4];
-	char buf[TRACE_BUF_SIZE] = "";
+	char *buf = kzalloc(TRACE_BUF_SIZE, GFP_KERNEL);
+
+	if (!buf)
+		return;
 
 	// stop etb trace
 	writel(0x0, iotm.cssys_base + ETB_CTL);
@@ -527,6 +534,7 @@ static void auto_dump_etb_buf(void)
 		if (need_dump() && (i > iotm.etb_buf_words_cnt - iotm.dump_cnt * words_per_trace))
 			pr_err("%s", buf);
 	}
+	kfree(buf);
 }
 
 static void dump_register_info(void *buf)
@@ -584,7 +592,10 @@ static void dump_register_info(void *buf)
 
 static void dump_trace(void)
 {
-	char buf[TRACE_BUF_SIZE] = "";
+	char *buf = kzalloc(TRACE_BUF_SIZE, GFP_KERNEL);
+
+	if (!buf)
+		return;
 	bool is_need_dump = need_dump();
 
 	if (is_need_dump) {
@@ -601,6 +612,7 @@ static void dump_trace(void)
 
 	if (is_need_dump)
 		pr_err("IOTM:dump trace end==========\n");
+	kfree(buf);
 }
 
 static void print_timeout_data(void)
@@ -1003,7 +1015,10 @@ static struct syscore_ops iotm_syscore_ops = {
 static int trace_show(struct seq_file *m, void *v)
 {
 	void *ptr, *ptr_end = NULL;
-	u8 buf[TRACE_BUF_SIZE];
+	u8 *buf = kzalloc(TRACE_BUF_SIZE, GFP_KERNEL);
+
+	if (!buf)
+		return -1;
 	u64 prev_time = 0;
 
 	iotm.saved_trace_show = 1;
@@ -1029,6 +1044,7 @@ static int trace_show(struct seq_file *m, void *v)
 
 	seq_puts(m, "IOTM:dump trace end==========\n");
 	iotm.saved_trace_show = 0;
+	kfree(buf);
 
 	return 0;
 }
