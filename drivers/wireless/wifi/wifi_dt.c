@@ -1048,6 +1048,7 @@ static struct platform_driver wifi_plat_driver = {
 	.resume = wifi_resume,
 };
 
+#ifndef MODULE
 static int get_usb2t_mode(char *str)
 {
 	int ret;
@@ -1059,6 +1060,7 @@ static int get_usb2t_mode(char *str)
 }
 
 __setup("usb2t_mode=", get_usb2t_mode);
+#endif //MODULE
 
 int __init wifi_dt_init(void)
 {
