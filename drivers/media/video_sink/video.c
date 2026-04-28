@@ -15144,6 +15144,7 @@ int screen_orientation(void)
 	return ret;
 }
 
+#ifndef MODULE
 static int vpp_axis_reverse(char *str)
 {
 	char *ptr = str;
@@ -15178,6 +15179,7 @@ static int vpp_axis_reverse(char *str)
 }
 
 __setup("video_reverse=", vpp_axis_reverse);
+#endif //MODULE
 #endif
 
 struct vframe_s *get_cur_dispbuf(void)

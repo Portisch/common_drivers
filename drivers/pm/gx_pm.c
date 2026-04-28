@@ -83,6 +83,7 @@ void unregister_early_suspend(struct early_suspend *handler)
 }
 EXPORT_SYMBOL(unregister_early_suspend);
 
+#ifndef MODULE
 static int suspend_get_pm_env(char *buf)
 {
 	if (!buf)
@@ -96,6 +97,7 @@ static int suspend_get_pm_env(char *buf)
 	return 1;
 }
 __setup("initcall_debug=", suspend_get_pm_env);
+#endif
 
 static inline void early_suspend(void)
 {
@@ -309,6 +311,7 @@ static ssize_t suspend_debug_store(const struct class *class,
 }
 
 static CLASS_ATTR_RW(suspend_debug);
+#ifndef  MODULE
 static int suspend_get_debug_env(char *buf)
 {
 	if (!buf)
@@ -323,6 +326,7 @@ static int suspend_get_debug_env(char *buf)
 }
 
 __setup("suspend_debug=", suspend_get_debug_env);
+#endif //MODULE
 
 void lgcy_early_suspend(void)
 {
