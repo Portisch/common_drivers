@@ -6455,6 +6455,7 @@ int parse_sei_and_meta_ext_v1(struct vframe_s *vf,
 	static int parse_process_count;
 	static u32 last_play_id;
 	static u32 err_parse_cnt;
+	int zero_count = 0;
 
 	if (!aux_buf || aux_size == 0 || !fmt || !md_buf || !comp_buf ||
 	    !total_comp_size || !total_md_size || !ret_flags)
@@ -6728,6 +6729,11 @@ int parse_sei_and_meta_ext_v1(struct vframe_s *vf,
 						pr_dv_dbg("type %d, size %d\n",
 							     sei_payload_type,
 							     sei_payload_size);
+					while (zero_count < MAX_ZERO_COUNT &&
+						(p + 40 + zero_count < aux_buf + aux_size) &&
+						p[40 + zero_count] == 0) {
+						zero_count++;
+					}
 					if (sei_payload_type ==
 					SEI_TYPE_MASTERING_DISP_COLOUR_VOLUME) {
 						len_2086_sei =
@@ -6735,7 +6741,8 @@ int parse_sei_and_meta_ext_v1(struct vframe_s *vf,
 						memcpy(payload_2086_sei, p + 4,
 						       len_2086_sei);
 					} else if (sei_payload_type == SEI_ITU_T_T35 &&
-						sei_payload_size >= 8 && check_atsc_dvb(p)) {
+						sei_payload_size >= 8 && check_atsc_dvb(p) &&
+						zero_count != MAX_ZERO_COUNT) {
 						len_2094_sei = sei_payload_size;
 						memcpy(payload_2094_sei, p + 4,
 						       len_2094_sei);
@@ -6746,6 +6753,7 @@ int parse_sei_and_meta_ext_v1(struct vframe_s *vf,
 				}
 			}
 			p += size;
+			zero_count = 0;
 		}
 		if (len_2094_sei > 0) {
 			/* source is VS10 */
@@ -6886,6 +6894,7 @@ int parse_sei_and_meta_ext_v2(struct vframe_s *vf,
 	unsigned int rpu_size = 0;
 	enum signal_format_enum *src_format = (enum signal_format_enum *)fmt;
 	int dv_id = vf->src_fmt.dv_id;
+	int zero_count = 0;
 
 	if (!dv_inst_valid(dv_id)) {
 		return 1;
@@ -7122,6 +7131,11 @@ int parse_sei_and_meta_ext_v2(struct vframe_s *vf,
 						pr_dv_dbg("type %d, size %d\n",
 							     sei_payload_type,
 							     sei_payload_size);
+					while (zero_count < MAX_ZERO_COUNT &&
+						(p + 40 + zero_count < aux_buf + aux_size) &&
+						p[40 + zero_count] == 0) {
+						zero_count++;
+					}
 					if (sei_payload_type ==
 					SEI_TYPE_MASTERING_DISP_COLOUR_VOLUME) {
 						len_2086_sei =
@@ -7129,7 +7143,8 @@ int parse_sei_and_meta_ext_v2(struct vframe_s *vf,
 						memcpy(payload_2086_sei, p + 4,
 						       len_2086_sei);
 					} else if (sei_payload_type == SEI_ITU_T_T35 &&
-						sei_payload_size >= 8 && check_atsc_dvb(p)) {
+						sei_payload_size >= 8 && check_atsc_dvb(p) &&
+						zero_count != MAX_ZERO_COUNT) {
 						len_2094_sei = sei_payload_size;
 						memcpy(payload_2094_sei, p + 4,
 						       len_2094_sei);
@@ -7140,6 +7155,7 @@ int parse_sei_and_meta_ext_v2(struct vframe_s *vf,
 				}
 			}
 			p += size;
+			zero_count = 0;
 		}
 		if (len_2094_sei > 0) {
 			/* source is VS10 */
