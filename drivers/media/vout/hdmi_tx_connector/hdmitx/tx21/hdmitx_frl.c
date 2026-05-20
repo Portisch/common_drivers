@@ -675,7 +675,16 @@ static bool frl_stop_work(struct frl_train_t *p)
 {
 	struct frl_work *work = &p->timer_frl_flt;
 
-	cancel_delayed_work_sync(&work->dwork);
+	/*
+	 * During the HDMI TX FRL CTS test case HFR1-10, when the flt_no_timeout value read from
+	 * the instrument through the SCDC interface is 1, the tx_train_fsm cannot exit normally.
+	 * In this case, if HPD is pulled low, the tx_train_fsm procedure shall be disabled
+	 * immediately.
+	 */
+	if (p->flt_no_timeout)
+		cancel_delayed_work(&work->dwork);
+	else
+		cancel_delayed_work_sync(&work->dwork);
 	HDMITX_INFO("stop %s\n", work->name);
 	return 0;
 }
