@@ -527,3 +527,6 @@ drivers/gpio/pinctrl/pinctrl-meson-axg-pmx.h
 drivers/gpio/pinctrl/pinctrl-meson-axg-pmx.c
 drivers/media/common/codec_mm/secport.c
 drivers/rtc/rtc-meson-vrtc.c
+drivers/staging/android/ashmem.c
+drivers/staging/android/ashmem.h
+drivers/staging/android/uapi/ashmem.h
