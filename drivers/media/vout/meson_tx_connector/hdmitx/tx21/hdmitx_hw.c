@@ -7237,8 +7237,6 @@ static int hdmitx21_pre_enable_mode(struct hdmitx_common *tx_comm)
 	}
 #endif
 
-	para->tx_hw_para.hdmitx_hw_para.frl_rate = FRL_NONE;
-	para->tx_hw_para.hdmitx_hw_para.dsc_en = 0;
 	/* below is only for FRL/DSC */
 	if (tx_comm->tx_hw->hdmi_tx_cap.tx_max_frl_rate == FRL_NONE)
 		return 0;
@@ -7269,7 +7267,7 @@ static int hdmitx21_pre_enable_mode(struct hdmitx_common *tx_comm)
 				para->tx_hw_para.hdmitx_hw_para.frl_rate,
 				tx_comm->tx_hw->hdmi_tx_cap.tx_max_frl_rate);
 	} else {
-		para->tx_hw_para.hdmitx_hw_para.frl_rate = 0;
+		para->tx_hw_para.hdmitx_hw_para.frl_rate = FRL_NONE;
 		para->tx_hw_para.hdmitx_hw_para.dsc_en = 0;
 	}
 
@@ -7337,11 +7335,8 @@ static int hdmitx21_enable_mode(struct hdmitx_common *tx_comm)
 
 static int hdmitx21_post_enable_mode(struct hdmitx_common *tx_comm)
 {
-	struct vinfo_s *vinfo = NULL;
 	struct cuva_info *cuva = &tx_comm->base.rxcap.hdr_info.cuva_info;
-#ifdef CONFIG_AMLOGIC_DSC
 	struct meson_tx_format_para *para = &tx_comm->fmt_para;
-#endif
 #ifdef CONFIG_AMLOGIC_HDCP_TX_MODERN
 	int hdcprx_ver = 0;
 	bool hdcp22_lstore = false;
@@ -7387,24 +7382,6 @@ static int hdmitx21_post_enable_mode(struct hdmitx_common *tx_comm)
 		}
 	}
 #endif
-	vinfo = get_current_vinfo();
-	if (vinfo) {
-		vinfo->cur_enc_ppc = 1;
-		if (para->tx_hw_para.hdmitx_hw_para.frl_rate > FRL_NONE)
-			vinfo->cur_enc_ppc = 4;
-#ifdef CONFIG_AMLOGIC_DSC
-		if (para->tx_hw_para.hdmitx_hw_para.dsc_en) {
-			if (para->cs == HDMI_COLORSPACE_RGB)
-				vinfo->vpp_post_out_color_fmt = 1;
-			else
-				vinfo->vpp_post_out_color_fmt = 0;
-		} else {
-			vinfo->vpp_post_out_color_fmt = 0;
-		}
-#endif
-		HDMITX_INFO("vinfo: set cur_enc_ppc as %d, vpp color: %d\n",
-			vinfo->cur_enc_ppc, vinfo->vpp_post_out_color_fmt);
-	}
 
 	/*
 	 * Step 1: When setting the mode, if the TV supports CUVA receiver mode,
