@@ -955,7 +955,7 @@ void hdmitx_set_s7_htx_pll(struct hdmitx21_dev *hdev)
 		return;
 	}
 
-	base_pixel_clk = para->timing.pixel_freq;
+	recaculate_base_pixel_clock(vic, para, &base_pixel_clk);
 	if (base_pixel_clk < 25175 || base_pixel_clk > 5940000) {
 		pr_err("%s[%d] not valid pixel clock %d\n", __func__, __LINE__, base_pixel_clk);
 		return;
@@ -981,7 +981,6 @@ void hdmitx_set_s7_htx_pll(struct hdmitx21_dev *hdev)
 			break;
 		}
 	}
-	base_pixel_clk = base_pixel_clk * 10; /* for tmds modes, here should multi 10 */
 	if (cs == HDMI_COLORSPACE_YUV420)
 		base_pixel_clk /= 2;
 	HDMITX_INFO("%s[%d] calculate pixel_clk to %d\n", __func__, __LINE__, base_pixel_clk);
@@ -1052,7 +1051,6 @@ void hdmitx_set_s7d_htx_pll(struct hdmitx21_dev *hdev)
 			break;
 		}
 	}
-	base_pixel_clk = base_pixel_clk * 10; /* for tmds modes, here should multi 10 */
 	if (cs == HDMI_COLORSPACE_YUV420)
 		base_pixel_clk /= 2;
 	HDMITX_DEBUG("%s[%d] calculate pixel_clk to %d\n", __func__, __LINE__, base_pixel_clk);
@@ -1097,7 +1095,7 @@ void hdmitx_set_s6_htx_pll(struct hdmitx21_dev *hdev)
 		return;
 	}
 
-	base_pixel_clk = para->timing.pixel_freq;
+	recaculate_base_pixel_clock(vic, para, &base_pixel_clk);
 	if (base_pixel_clk < 25175 || base_pixel_clk > 5940000) {
 		HDMITX_INFO("%s[%d] not valid pixel clock %d\n",
 				__func__, __LINE__, base_pixel_clk);
