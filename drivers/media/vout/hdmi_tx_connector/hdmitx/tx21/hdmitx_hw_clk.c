@@ -852,13 +852,6 @@ static void set_hdmitx_s5_htx_pll(struct hdmitx21_dev *hdev)
 		return;
 	}
 
-	recaculate_base_pixel_clock(vic, para, &base_pixel_clk);
-	if (base_pixel_clk < 25175 || base_pixel_clk > 5940000) {
-		HDMITX_ERROR("%s[%d] not valid pixel clock %d\n", __func__, __LINE__,
-			base_pixel_clk);
-		return;
-	}
-
 	/* For FRL modes */
 	if (para->frl_rate != FRL_NONE) {
 		HDMITX_INFO("set hpll for frl_rate %d\n", para->frl_rate);
@@ -887,6 +880,13 @@ static void set_hdmitx_s5_htx_pll(struct hdmitx21_dev *hdev)
 			break;
 		}
 		return;
+	} else {
+		/* for tmds mode */
+		recaculate_base_pixel_clock(vic, para, &base_pixel_clk);
+		if (base_pixel_clk < 25175 || base_pixel_clk > 5940000) {
+			HDMITX_ERROR("not valid pixel clock %d\n", base_pixel_clk);
+			return;
+		}
 	}
 
 	HDMITX_INFO("%s[%d] base_pixel_clk %d  cs %d  cd %d  frac_rate %d\n",
