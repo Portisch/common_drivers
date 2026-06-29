@@ -1630,7 +1630,7 @@
 };
 
 &drm_amcvbsout {
-	status = "okay";
+	status = "disabled";
 };
 
 &amhdmitx {
