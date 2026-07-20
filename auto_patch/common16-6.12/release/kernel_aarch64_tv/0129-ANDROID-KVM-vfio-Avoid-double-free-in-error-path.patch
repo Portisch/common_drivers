@@ -1,0 +1,51 @@
+From a9cc05e357837cc117308fc0e014925fd5e32570 Mon Sep 17 00:00:00 2001
+From: Mostafa Saleh <smostafa@google.com>
+Date: Thu, 16 Apr 2026 12:06:07 +0000
+Subject: [PATCH 129/223] ANDROID: KVM: vfio: Avoid double free in error path
+
+On the error path of kvm_vfio_pviommu_attach() when a file is
+already created, the release function will be called when it is put
+on error path, so no need to free the pviommu struct.
+
+Bug: 503385812
+Change-Id: I131ae69f7d267aeed77d5b8adf46b9afb3ec2605
+Signed-off-by: Mostafa Saleh <smostafa@google.com>
+(cherry picked from commit 8c62fa09cc8a04cbaaa5d00b5dcd51279bee3bdb)
+Signed-off-by: Lee Jones <joneslee@google.com>
+---
+ virt/kvm/vfio.c | 8 +++-----
+ 1 file changed, 3 insertions(+), 5 deletions(-)
+
+diff --git a/virt/kvm/vfio.c b/virt/kvm/vfio.c
+index 025c3da3424d..c9f2edfe1f85 100644
+--- a/virt/kvm/vfio.c
++++ b/virt/kvm/vfio.c
+@@ -463,8 +463,8 @@ static int kvm_vfio_pviommu_attach(struct kvm_device *dev)
+ 
+ 	filep = anon_inode_getfile("kvm-pviommu", &pviommu_fops, pviommu, O_CLOEXEC);
+ 	if (IS_ERR(filep)) {
+-		ret = PTR_ERR(filep);
+-		goto out_free;
++		kfree(pviommu);
++		return PTR_ERR(filep);
+ 	}
+ 
+ 	fdno = get_unused_fd_flags(O_CLOEXEC);
+@@ -480,13 +480,11 @@ static int kvm_vfio_pviommu_attach(struct kvm_device *dev)
+ 
+ 	pviommu->fd = fdno;
+ 	fd_install(fdno, filep);
+-	return pviommu->fd;
++	return fdno;
+ out_err:
+ 	put_unused_fd(fdno);
+ out_fput:
+ 	fput(filep);
+-out_free:
+-	kfree(pviommu);
+ 	return ret;
+ }
+ 
+-- 
+2.50.1
+

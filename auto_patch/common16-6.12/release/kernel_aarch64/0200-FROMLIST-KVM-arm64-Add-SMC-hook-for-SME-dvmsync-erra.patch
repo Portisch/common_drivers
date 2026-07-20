@@ -1,0 +1,85 @@
+From c8ecbc8ac1f9371581fb9f09708a5fdeaf60ca68 Mon Sep 17 00:00:00 2001
+From: James Morse <james.morse@arm.com>
+Date: Mon, 9 Mar 2026 19:16:40 +0000
+Subject: [PATCH 200/223] FROMLIST: KVM: arm64: Add SMC hook for SME dvmsync
+ erratum
+
+C1-Pro cores with SME have an erratum where TLBI+DSB does not complete
+all outstanding SME accesses. Instead a DSB needs to be executed on the
+affected CPUs. The implication is pages cannot be unmapped from the
+host stage2 then provided to the guest. Host SME accesses may occur
+after this point.
+
+This erratum breaks pKVM's guarantees, and the workaround is hard to
+implement as EL2 and EL1 share a security state meaning EL1 can mask
+IPI sent by EL2, leading to interrupt blackouts.
+
+Instead, do this in EL3. This has the advantage of a separate security
+state, meaning lower EL cannot mask the IPI. It is also simpler for EL3
+to know about CPUs that are off or in PSCI's CPU_SUSPEND.
+
+Add the needed hooks.
+
+Signed-off-by: James Morse <james.morse@arm.com>
+Signed-off-by: Catalin Marinas <catalin.marinas@arm.com>
+Bug: 448672457
+Link: https://lore.kernel.org/all/20260323162408.4163113-6-catalin.marinas@arm.com/
+Signed-off-by: Vincent Donnefort <vdonnefort@google.com>
+Cherrypick-From: https://android-review.googlesource.com/q/commit:5d08825183f3b8babe9f78fccdfe6c2594db94f3
+Merged-In: Ifd6644377a6e185a479dbb08ac2c06a8af1dd27b
+Bug: 520016024
+Change-Id: Ifd6644377a6e185a479dbb08ac2c06a8af1dd27b
+Signed-off-by: Chung-Kai (Michael) Mei <chungkai@google.com>
+---
+ arch/arm64/kvm/hyp/nvhe/mem_protect.c | 10 ++++++++++
+ include/linux/arm-smccc.h             |  6 ++++++
+ 2 files changed, 16 insertions(+)
+
+diff --git a/arch/arm64/kvm/hyp/nvhe/mem_protect.c b/arch/arm64/kvm/hyp/nvhe/mem_protect.c
+index b1939cc42146..6e2dea5c4cc0 100644
+--- a/arch/arm64/kvm/hyp/nvhe/mem_protect.c
++++ b/arch/arm64/kvm/hyp/nvhe/mem_protect.c
+@@ -5,6 +5,7 @@
+  */
+ 
+ #include <linux/kvm_host.h>
++#include <linux/arm-smccc.h>
+ #include <asm/kvm_emulate.h>
+ #include <asm/kvm_hyp.h>
+ #include <asm/kvm_hypevents.h>
+@@ -46,6 +47,15 @@ static struct kvm_pgtable_pte_ops guest_s2_pte_ops = {
+ 	.pte_is_counted_cb = guest_stage2_pte_is_counted
+ };
+ 
++static void pkvm_sme_dvmsync_fw_call(void)
++{
++	if (alternative_has_cap_unlikely(ARM64_WORKAROUND_4193714)) {
++		struct arm_smccc_res res;
++
++		arm_smccc_1_1_smc(ARM_SMCCC_CPU_WORKAROUND_4193714, &res);
++	}
++}
++
+ static void guest_lock_component(struct pkvm_hyp_vm *vm)
+ {
+ 	hyp_spin_lock(&vm->pgtable_lock);
+diff --git a/include/linux/arm-smccc.h b/include/linux/arm-smccc.h
+index ee2708dda7b3..2c4189bf8211 100644
+--- a/include/linux/arm-smccc.h
++++ b/include/linux/arm-smccc.h
+@@ -100,6 +100,12 @@
+ 			   ARM_SMCCC_SMC_32,				\
+ 			   0, 0x3fff)
+ 
++/* C1-Pro erratum 4193714: SME DVMSync early acknowledgement */
++#define ARM_SMCCC_CPU_WORKAROUND_4193714				\
++	ARM_SMCCC_CALL_VAL(ARM_SMCCC_FAST_CALL,				\
++			   ARM_SMCCC_SMC_32,				\
++			   ARM_SMCCC_OWNER_CPU, 0x10)
++
+ #define ARM_SMCCC_VENDOR_HYP_CALL_UID_FUNC_ID				\
+ 	ARM_SMCCC_CALL_VAL(ARM_SMCCC_FAST_CALL,				\
+ 			   ARM_SMCCC_SMC_32,				\
+-- 
+2.50.1
+

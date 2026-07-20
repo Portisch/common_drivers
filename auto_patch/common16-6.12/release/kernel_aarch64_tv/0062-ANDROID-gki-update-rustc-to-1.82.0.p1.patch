@@ -1,7 +1,7 @@
 From 3e1f3f252af3ca160fcd929835a3bae802ad8386 Mon Sep 17 00:00:00 2001
 From: Alice Ryhl <aliceryhl@google.com>
 Date: Wed, 1 Apr 2026 13:02:37 +0000
-Subject: [PATCH 62/63] ANDROID: gki: update rustc to 1.82.0.p1
+Subject: [PATCH 062/223] ANDROID: gki: update rustc to 1.82.0.p1
 
 This rustc respin contains some upstream Rust changes that have been
 backported to use in the kernel:

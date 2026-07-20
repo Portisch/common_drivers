@@ -1,0 +1,183 @@
+From f3b4bb07e12fb98bb73d0b7215cb2931e30f74f1 Mon Sep 17 00:00:00 2001
+From: Chao Yu <chao@kernel.org>
+Date: Thu, 20 Mar 2025 10:22:30 +0800
+Subject: [PATCH 085/223] BACKPORT: f2fs: fix to update injection attrs
+ according to fault_option
+
+When we update inject type via sysfs, it shows wrong rate value as
+below, there is a same problem when we update inject rate, fix it.
+
+Before:
+F2FS-fs (vdd): build fault injection attr: rate: 0, type: 0xffff
+F2FS-fs (vdd): build fault injection attr: rate: 1, type: 0x0
+
+After:
+F2FS-fs (vdd): build fault injection type: 0x1
+F2FS-fs (vdd): build fault injection rate: 1
+
+Meanwhile, let's avoid turning on all fault types when we enable fault
+injection via fault_injection mount option, it will lead to shutdown
+filesystem or fail the mount() easily.
+
+mount -o fault_injection=4 /dev/vdd /mnt/f2fs
+F2FS-fs (vdd): build fault injection attr: rate: 4, type: 0x7fffff
+F2FS-fs (vdd): inject kmalloc in f2fs_kmalloc of f2fs_fill_super+0xbdf/0x27c0
+
+Change-Id: Id3403c6e1e9314029e7662a53125f403b9ee7fc7
+Signed-off-by: Chao Yu <chao@kernel.org>
+Signed-off-by: Jaegeuk Kim <jaegeuk@kernel.org>
+Bug: 457632675
+Bug: 504519944
+(cherry picked from commit 2be96c2147e25d5845c1b06dc20521ab9e0eeeb0)
+[joannechien: resolved minor conflict in fs/f2fs/super.c
+with "BACKPORT: FROMGIT: f2fs: add lookup_mode mount option"]
+Signed-off-by: Joanne Chang <joannechien@google.com>
+---
+ fs/f2fs/checkpoint.c |  2 +-
+ fs/f2fs/f2fs.h       | 14 ++++++++++----
+ fs/f2fs/super.c      | 26 +++++++++++++-------------
+ fs/f2fs/sysfs.c      |  4 ++--
+ 4 files changed, 26 insertions(+), 20 deletions(-)
+
+diff --git a/fs/f2fs/checkpoint.c b/fs/f2fs/checkpoint.c
+index d9193a84ae7b..21ad971dbc94 100644
+--- a/fs/f2fs/checkpoint.c
++++ b/fs/f2fs/checkpoint.c
+@@ -171,7 +171,7 @@ EXPORT_SYMBOL_GPL(_trace_android_rvh_f2fs_down_read);
+ void f2fs_stop_checkpoint(struct f2fs_sb_info *sbi, bool end_io,
+ 						unsigned char reason)
+ {
+-	f2fs_build_fault_attr(sbi, 0, 0);
++	f2fs_build_fault_attr(sbi, 0, 0, FAULT_ALL);
+ 	if (!end_io)
+ 		f2fs_flush_merged_writes(sbi);
+ 	f2fs_handle_critical_error(sbi, reason);
+diff --git a/fs/f2fs/f2fs.h b/fs/f2fs/f2fs.h
+index 5e120b0ac9e4..7dd01488ca82 100644
+--- a/fs/f2fs/f2fs.h
++++ b/fs/f2fs/f2fs.h
+@@ -68,9 +68,14 @@ enum {
+ 	FAULT_MAX,
+ };
+ 
+-#ifdef CONFIG_F2FS_FAULT_INJECTION
+-#define F2FS_ALL_FAULT_TYPE		(GENMASK(FAULT_MAX - 1, 0))
++/* indicate which option to update */
++enum fault_option {
++	FAULT_RATE	= 1,	/* only update fault rate */
++	FAULT_TYPE	= 2,	/* only update fault type */
++	FAULT_ALL	= 4,	/* reset all fault injection options/stats */
++};
+ 
++#ifdef CONFIG_F2FS_FAULT_INJECTION
+ struct f2fs_fault_info {
+ 	atomic_t inject_ops;
+ 	int inject_rate;
+@@ -4851,10 +4856,11 @@ static inline bool f2fs_need_verity(const struct inode *inode, pgoff_t idx)
+ 
+ #ifdef CONFIG_F2FS_FAULT_INJECTION
+ extern int f2fs_build_fault_attr(struct f2fs_sb_info *sbi, unsigned long rate,
+-							unsigned long type);
++					unsigned long type, enum fault_option fo);
+ #else
+ static inline int f2fs_build_fault_attr(struct f2fs_sb_info *sbi,
+-					unsigned long rate, unsigned long type)
++					unsigned long rate, unsigned long type,
++					enum fault_option fo)
+ {
+ 	return 0;
+ }
+diff --git a/fs/f2fs/super.c b/fs/f2fs/super.c
+index 774b04c756f6..7e6bec704cca 100644
+--- a/fs/f2fs/super.c
++++ b/fs/f2fs/super.c
+@@ -72,29 +72,30 @@ const char *f2fs_fault_name[FAULT_MAX] = {
+ };
+ 
+ int f2fs_build_fault_attr(struct f2fs_sb_info *sbi, unsigned long rate,
+-							unsigned long type)
++				unsigned long type, enum fault_option fo)
+ {
+ 	struct f2fs_fault_info *ffi = &F2FS_OPTION(sbi).fault_info;
+ 
+-	if (rate) {
++	if (fo & FAULT_ALL) {
++		memset(ffi, 0, sizeof(struct f2fs_fault_info));
++		return 0;
++	}
++
++	if (fo & FAULT_RATE) {
+ 		if (rate > INT_MAX)
+ 			return -EINVAL;
+ 		atomic_set(&ffi->inject_ops, 0);
+ 		ffi->inject_rate = (int)rate;
++		f2fs_info(sbi, "build fault injection rate: %lu", rate);
+ 	}
+ 
+-	if (type) {
++	if (fo & FAULT_TYPE) {
+ 		if (type >= BIT(FAULT_MAX))
+ 			return -EINVAL;
+ 		ffi->inject_type = (unsigned int)type;
++		f2fs_info(sbi, "build fault injection type: 0x%lx", type);
+ 	}
+ 
+-	if (!rate && !type)
+-		memset(ffi, 0, sizeof(struct f2fs_fault_info));
+-	else
+-		f2fs_info(sbi,
+-			"build fault injection attr: rate: %lu, type: 0x%lx",
+-								rate, type);
+ 	return 0;
+ }
+ #endif
+@@ -924,8 +925,7 @@ static int parse_options(struct f2fs_sb_info *sbi, char *options, bool is_remoun
+ 		case Opt_fault_injection:
+ 			if (args->from && match_int(args, &arg))
+ 				return -EINVAL;
+-			if (f2fs_build_fault_attr(sbi, arg,
+-					F2FS_ALL_FAULT_TYPE))
++			if (f2fs_build_fault_attr(sbi, arg, 0, FAULT_RATE))
+ 				return -EINVAL;
+ 			set_opt(sbi, FAULT_INJECTION);
+ 			break;
+@@ -933,7 +933,7 @@ static int parse_options(struct f2fs_sb_info *sbi, char *options, bool is_remoun
+ 		case Opt_fault_type:
+ 			if (args->from && match_int(args, &arg))
+ 				return -EINVAL;
+-			if (f2fs_build_fault_attr(sbi, 0, arg))
++			if (f2fs_build_fault_attr(sbi, 0, arg, FAULT_TYPE))
+ 				return -EINVAL;
+ 			set_opt(sbi, FAULT_INJECTION);
+ 			break;
+@@ -2273,7 +2273,7 @@ static void default_options(struct f2fs_sb_info *sbi, bool remount)
+ 	set_opt(sbi, POSIX_ACL);
+ #endif
+ 
+-	f2fs_build_fault_attr(sbi, 0, 0);
++	f2fs_build_fault_attr(sbi, 0, 0, FAULT_ALL);
+ 
+ 	f2fs_set_lookup_mode(sbi, LOOKUP_PERF);
+ }
+diff --git a/fs/f2fs/sysfs.c b/fs/f2fs/sysfs.c
+index b2a6bdb6a91b..b62024146fda 100644
+--- a/fs/f2fs/sysfs.c
++++ b/fs/f2fs/sysfs.c
+@@ -517,12 +517,12 @@ static ssize_t __sbi_store(struct f2fs_attr *a,
+ 		return ret;
+ #ifdef CONFIG_F2FS_FAULT_INJECTION
+ 	if (a->struct_type == FAULT_INFO_TYPE) {
+-		if (f2fs_build_fault_attr(sbi, 0, t))
++		if (f2fs_build_fault_attr(sbi, 0, t, FAULT_TYPE))
+ 			return -EINVAL;
+ 		return count;
+ 	}
+ 	if (a->struct_type == FAULT_INFO_RATE) {
+-		if (f2fs_build_fault_attr(sbi, t, 0))
++		if (f2fs_build_fault_attr(sbi, t, 0, FAULT_RATE))
+ 			return -EINVAL;
+ 		return count;
+ 	}
+-- 
+2.50.1
+

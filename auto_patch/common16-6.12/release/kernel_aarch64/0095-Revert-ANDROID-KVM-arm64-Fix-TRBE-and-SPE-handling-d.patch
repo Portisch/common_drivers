@@ -1,0 +1,128 @@
+From 91bf036bb618e771cf2d4c607da05bba659058a1 Mon Sep 17 00:00:00 2001
+From: Fuad Tabba <tabba@google.com>
+Date: Mon, 13 Apr 2026 10:40:04 +0000
+Subject: [PATCH 095/223] Revert "ANDROID: KVM: arm64: Fix TRBE and SPE
+ handling during pKVM world switch"
+
+This reverts commit 057c115fcd4bbe6919a6af5ee9721988866b78f8.
+
+Bug: 473214797
+Change-Id: I6cefefe0f099fe776928a5ee70c838aac50473c4
+Signed-off-by: Fuad Tabba <tabba@google.com>
+(cherry picked from commit 3628324b10f46c55547e80be9d427bc1db3553d8)
+Bug: 504744760
+---
+ arch/arm64/include/asm/kvm_hyp.h   |  1 -
+ arch/arm64/include/asm/kvm_pkvm.h  | 10 ----------
+ arch/arm64/kvm/arm.c               |  1 -
+ arch/arm64/kvm/hyp/nvhe/hyp-main.c |  4 +---
+ arch/arm64/kvm/hyp/nvhe/pkvm.c     | 13 -------------
+ arch/arm64/kvm/hyp/nvhe/sys_regs.c |  1 -
+ 6 files changed, 1 insertion(+), 29 deletions(-)
+
+diff --git a/arch/arm64/include/asm/kvm_hyp.h b/arch/arm64/include/asm/kvm_hyp.h
+index 4084037e1172..0257e8e37434 100644
+--- a/arch/arm64/include/asm/kvm_hyp.h
++++ b/arch/arm64/include/asm/kvm_hyp.h
+@@ -148,7 +148,6 @@ extern u64 kvm_nvhe_sym(id_aa64mmfr0_el1_sys_val);
+ extern u64 kvm_nvhe_sym(id_aa64mmfr1_el1_sys_val);
+ extern u64 kvm_nvhe_sym(id_aa64mmfr2_el1_sys_val);
+ extern u64 kvm_nvhe_sym(id_aa64smfr0_el1_sys_val);
+-extern u64 kvm_nvhe_sym(id_aa64dfr0_el1_sys_val);
+ 
+ extern unsigned long kvm_nvhe_sym(__icache_flags);
+ extern unsigned int kvm_nvhe_sym(kvm_arm_vmid_bits);
+diff --git a/arch/arm64/include/asm/kvm_pkvm.h b/arch/arm64/include/asm/kvm_pkvm.h
+index 4cd399f4ebe3..db161943f99b 100644
+--- a/arch/arm64/include/asm/kvm_pkvm.h
++++ b/arch/arm64/include/asm/kvm_pkvm.h
+@@ -27,16 +27,6 @@ bool pkvm_is_hyp_created(struct kvm *kvm);
+ int pkvm_create_hyp_vcpu(struct kvm_vcpu *vcpu);
+ void pkvm_host_reclaim_page(struct kvm *host_kvm, phys_addr_t ipa);
+ int pvkm_enable_smc_forwarding(struct file *kvm_file);
+-
+-/*
+- * Mask of iflags that the host is permitted to update for non-protected VMs.
+- * Crucially excludes DEBUG_STATE_SAVE_SPE and DEBUG_STATE_SAVE_TRBE to
+- * ensure EL2 remains in control of debug hardware state saving.
+- */
+-#define PKVM_ALLOWED_HOST_IFLAGS                                           \
+-	(unpack_vcpu_flag(PC_UPDATE_REQ) | unpack_vcpu_flag(DEBUG_DIRTY) | \
+-	 unpack_vcpu_flag(PKVM_HOST_STATE_DIRTY))
+-
+ /*
+  * This functions as an allow-list of protected VM capabilities.
+  * Features not explicitly allowed by this function are denied.
+diff --git a/arch/arm64/kvm/arm.c b/arch/arm64/kvm/arm.c
+index 305332011eac..564abfd58e12 100644
+--- a/arch/arm64/kvm/arm.c
++++ b/arch/arm64/kvm/arm.c
+@@ -2469,7 +2469,6 @@ static void kvm_hyp_init_symbols(void)
+ 	kvm_nvhe_sym(id_aa64mmfr1_el1_sys_val) = read_sanitised_ftr_reg(SYS_ID_AA64MMFR1_EL1);
+ 	kvm_nvhe_sym(id_aa64mmfr2_el1_sys_val) = read_sanitised_ftr_reg(SYS_ID_AA64MMFR2_EL1);
+ 	kvm_nvhe_sym(id_aa64smfr0_el1_sys_val) = read_sanitised_ftr_reg(SYS_ID_AA64SMFR0_EL1);
+-	kvm_nvhe_sym(id_aa64dfr0_el1_sys_val) = read_sanitised_ftr_reg(SYS_ID_AA64DFR0_EL1);
+ 	kvm_nvhe_sym(__icache_flags) = __icache_flags;
+ 	kvm_nvhe_sym(kvm_arm_vmid_bits) = kvm_arm_vmid_bits;
+ 	kvm_nvhe_sym(smccc_trng_available) = smccc_trng_available;
+diff --git a/arch/arm64/kvm/hyp/nvhe/hyp-main.c b/arch/arm64/kvm/hyp/nvhe/hyp-main.c
+index 4f4b56d853c3..9c7f0fbc3d19 100644
+--- a/arch/arm64/kvm/hyp/nvhe/hyp-main.c
++++ b/arch/arm64/kvm/hyp/nvhe/hyp-main.c
+@@ -808,9 +808,7 @@ static void flush_hyp_vcpu(struct pkvm_hyp_vcpu *hyp_vcpu)
+ 		if (host_iflags & unpack_vcpu_flag(PKVM_HOST_STATE_DIRTY))
+ 			__flush_hyp_vcpu(hyp_vcpu);
+ 
+-		hyp_vcpu->vcpu.arch.iflags = (host_iflags & PKVM_ALLOWED_HOST_IFLAGS) |
+-			(hyp_vcpu->vcpu.arch.iflags & ~PKVM_ALLOWED_HOST_IFLAGS);
+-
++		hyp_vcpu->vcpu.arch.iflags = host_iflags;
+ 		flush_debug_state(hyp_vcpu);
+ 
+ 		hyp_vcpu->vcpu.arch.hcr_el2 &= ~(HCR_TWI | HCR_TWE);
+diff --git a/arch/arm64/kvm/hyp/nvhe/pkvm.c b/arch/arm64/kvm/hyp/nvhe/pkvm.c
+index c87a40c0aaac..846d085b7021 100644
+--- a/arch/arm64/kvm/hyp/nvhe/pkvm.c
++++ b/arch/arm64/kvm/hyp/nvhe/pkvm.c
+@@ -711,17 +711,6 @@ static int pkvm_vcpu_init_sysregs(struct pkvm_hyp_vcpu *hyp_vcpu)
+ 	return ret;
+ }
+ 
+-static void pkvm_vcpu_init_debug_state(struct pkvm_hyp_vcpu *hyp_vcpu)
+-{
+-	struct kvm_vcpu *vcpu = &hyp_vcpu->vcpu;
+-
+-	if (FIELD_GET(ID_AA64DFR0_EL1_PMSVer, id_aa64dfr0_el1_sys_val))
+-		vcpu_set_flag(vcpu, DEBUG_STATE_SAVE_SPE);
+-
+-	if (FIELD_GET(ID_AA64DFR0_EL1_TraceBuffer, id_aa64dfr0_el1_sys_val))
+-		vcpu_set_flag(vcpu, DEBUG_STATE_SAVE_TRBE);
+-}
+-
+ static int init_pkvm_hyp_vcpu(struct pkvm_hyp_vcpu *hyp_vcpu,
+ 			      struct pkvm_hyp_vm *hyp_vm,
+ 			      struct kvm_vcpu *host_vcpu)
+@@ -778,8 +767,6 @@ static int init_pkvm_hyp_vcpu(struct pkvm_hyp_vcpu *hyp_vcpu,
+ 	ret = pkvm_vcpu_init_psci(hyp_vcpu, mp_state);
+ 	if (ret)
+ 		goto done;
+-
+-	pkvm_vcpu_init_debug_state(hyp_vcpu);
+ done:
+ 	if (ret)
+ 		unpin_host_vcpu(hyp_vcpu);
+diff --git a/arch/arm64/kvm/hyp/nvhe/sys_regs.c b/arch/arm64/kvm/hyp/nvhe/sys_regs.c
+index 508ce5514206..f73ddefa9a5b 100644
+--- a/arch/arm64/kvm/hyp/nvhe/sys_regs.c
++++ b/arch/arm64/kvm/hyp/nvhe/sys_regs.c
+@@ -28,7 +28,6 @@ u64 id_aa64mmfr0_el1_sys_val;
+ u64 id_aa64mmfr1_el1_sys_val;
+ u64 id_aa64mmfr2_el1_sys_val;
+ u64 id_aa64smfr0_el1_sys_val;
+-u64 id_aa64dfr0_el1_sys_val;
+ 
+ struct pvm_ftr_bits {
+ 	bool		sign;
+-- 
+2.50.1
+

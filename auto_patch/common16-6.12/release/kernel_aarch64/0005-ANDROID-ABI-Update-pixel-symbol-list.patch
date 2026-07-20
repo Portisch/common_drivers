@@ -1,7 +1,7 @@
 From b2bb3b062c7b1e74109b61771f6598b9ef53c098 Mon Sep 17 00:00:00 2001
 From: Robin Peng <robinpeng@google.com>
 Date: Tue, 17 Mar 2026 04:22:28 +0000
-Subject: [PATCH 05/63] ANDROID: ABI: Update pixel symbol list
+Subject: [PATCH 005/223] ANDROID: ABI: Update pixel symbol list
 
 Adding the following symbols:
   - dev_set_mtu

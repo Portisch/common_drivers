@@ -1,0 +1,60 @@
+From 0b45a61c2e8e26290ad2a5369f1e0d463c2ed57e Mon Sep 17 00:00:00 2001
+From: Alice Ryhl <aliceryhl@google.com>
+Date: Wed, 10 Jun 2026 10:35:37 +0000
+Subject: [PATCH 221/223] ANDROID: Revert "kasan: Don't instrument Rust globals
+ if UNWIND_PATCH_PAC_INTO_SCS=y"
+
+This reverts commit 0d80ee00f7471317740f9843ca78ae96409377ee. Since
+rustc has been upgraded to a patched version, this workaround is no
+longer required.
+
+Bug: 513032835
+Change-Id: Ic5af0a904520082c1001ec6106a8a96588b4f604
+(cherry picked from commit 5eaad011505637a53f806198095bd1ae2635cb39)
+[aliceryhl: updated commit hash ref for android16-6.12-2026-03]
+Signed-off-by: Alice Ryhl <aliceryhl@google.com>
+Bug: 522618399
+---
+ scripts/Makefile.kasan | 26 +-------------------------
+ 1 file changed, 1 insertion(+), 25 deletions(-)
+
+diff --git a/scripts/Makefile.kasan b/scripts/Makefile.kasan
+index 5091ffe4d945..91504e81247a 100644
+--- a/scripts/Makefile.kasan
++++ b/scripts/Makefile.kasan
+@@ -100,31 +100,7 @@ CFLAGS_KASAN += $(call check-args, cc-param, $(kasan_params))
+ 
+ ifdef CONFIG_RUST
+ 	# Avoid calling `rustc-param` unless Rust is enabled.
+-	#
+-	# b/513032835: TODO: Re-enable instrumentation for globals once it's working properly.
+-	#
+-	# When CONFIG_KASAN_GENERIC is enabled, constructors are generated to setup KASAN's redzones
+-	# for global variables. However, under the following conditions, memory corruption has been
+-	# observed:
+-	#
+-	# 1. CONFIG_RUST=y
+-	# 2. CONFIG_SHADOW_CALL_STACK=y
+-	# 3. CONFIG_UNWIND_PATCH_PAC_INTO_SCS=y
+-	# 4. The CPUs on the device do not support the pointer authentication code (PAC) feature
+-	#
+-	# Condition 4 causes the kernel to fallback to using the shadow call stack feature by
+-	# patching the PAC instructions with loads and stores from and to the shadow call stack
+-	# respectively. However, this is not happening as expected at the moment and manifests
+-	# as memory corruption.
+-	#
+-	# While this has only been observed with the Rust stdlib module (rust/core.o), it could
+-	# happen with other Rust modules. So, disable instrumentation of Rust globals if needed.
+-ifdef CONFIG_UNWIND_PATCH_PAC_INTO_SCS
+-	rust_kasan_params := $(subst asan-globals=1,asan-globals=0,$(kasan_params))
+-else
+-	rust_kasan_params := $(kasan_params)
+-endif
+-	RUSTFLAGS_KASAN += $(call check-args, rustc-param, $(rust_kasan_params))
++	RUSTFLAGS_KASAN += $(call check-args, rustc-param, $(kasan_params))
+ endif # CONFIG_RUST
+ 
+ export CFLAGS_KASAN CFLAGS_KASAN_NOSANITIZE RUSTFLAGS_KASAN
+-- 
+2.50.1
+

@@ -1,0 +1,68 @@
+From 4760e7a44f40a4e703a76d3312adec60fb90cd6d Mon Sep 17 00:00:00 2001
+From: Bart Van Assche <bvanassche@google.com>
+Date: Tue, 26 May 2026 13:10:08 -0700
+Subject: [PATCH 176/223] ANDROID: ufs: core: Split ufshcd_dispatch_uic_cmd()
+
+Introduce __ufshcd_dispatch_uic_cmd(). Call
+ufshcd_add_uic_command_trace() before writing any UIC registers. This
+patch prepares for introducing a second __ufshcd_dispatch_uic_cmd()
+caller.
+
+This CL includes a behavior change. Before this CL,
+trace_android_vh_ufs_send_uic_command() was called after the UIC
+argument registers were written. With this CL applied,
+trace_android_vh_ufs_send_uic_command() is called before any UIC
+argument registers are written.
+
+Bug: 503802344
+Bug: 516849018
+Bug: 517489432
+Change-Id: Ib8ac3f10089b636c44277601339fa43b38799f06
+Signed-off-by: Bart Van Assche <bvanassche@google.com>
+(cherry picked from commit 271c52387a89b8c503b41542a056f27c7dea65fa)
+---
+ drivers/ufs/core/ufshcd.c | 19 +++++++++++--------
+ 1 file changed, 11 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/ufs/core/ufshcd.c b/drivers/ufs/core/ufshcd.c
+index 1279046a1bbc..a01bf92031f0 100644
+--- a/drivers/ufs/core/ufshcd.c
++++ b/drivers/ufs/core/ufshcd.c
+@@ -2538,6 +2538,16 @@ static inline u8 ufshcd_get_upmcrs(struct ufs_hba *hba)
+ 	return (ufshcd_readl(hba, REG_CONTROLLER_STATUS) >> 8) & 0x7;
+ }
+ 
++static void
++__ufshcd_dispatch_uic_cmd(struct ufs_hba *hba, struct uic_command *uic_cmd)
++{
++	ufshcd_writel(hba, uic_cmd->argument1, REG_UIC_COMMAND_ARG_1);
++	ufshcd_writel(hba, uic_cmd->argument2, REG_UIC_COMMAND_ARG_2);
++	ufshcd_writel(hba, uic_cmd->argument3, REG_UIC_COMMAND_ARG_3);
++	ufshcd_writel(hba, uic_cmd->command & COMMAND_OPCODE_MASK,
++		      REG_UIC_COMMAND);
++}
++
+ /**
+  * ufshcd_dispatch_uic_cmd - Dispatch an UIC command to the Unipro layer
+  * @hba: per adapter instance
+@@ -2553,16 +2563,9 @@ ufshcd_dispatch_uic_cmd(struct ufs_hba *hba, struct uic_command *uic_cmd)
+ 
+ 	hba->active_uic_cmd = uic_cmd;
+ 
+-	/* Write Args */
+-	ufshcd_writel(hba, uic_cmd->argument1, REG_UIC_COMMAND_ARG_1);
+-	ufshcd_writel(hba, uic_cmd->argument2, REG_UIC_COMMAND_ARG_2);
+-	ufshcd_writel(hba, uic_cmd->argument3, REG_UIC_COMMAND_ARG_3);
+-
+ 	ufshcd_add_uic_command_trace(hba, uic_cmd, UFS_CMD_SEND);
+ 
+-	/* Write UIC Cmd */
+-	ufshcd_writel(hba, uic_cmd->command & COMMAND_OPCODE_MASK,
+-		      REG_UIC_COMMAND);
++	__ufshcd_dispatch_uic_cmd(hba, uic_cmd);
+ }
+ 
+ /**
+-- 
+2.50.1
+

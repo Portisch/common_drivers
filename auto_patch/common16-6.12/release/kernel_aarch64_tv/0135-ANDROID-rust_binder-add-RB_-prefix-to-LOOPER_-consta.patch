@@ -1,0 +1,36 @@
+From cec18cd95c2a3656febfe5b7f376efa5cc18027f Mon Sep 17 00:00:00 2001
+From: Alice Ryhl <aliceryhl@google.com>
+Date: Wed, 6 May 2026 11:42:23 +0000
+Subject: [PATCH 135/223] ANDROID: rust_binder: add RB_ prefix to LOOPER_*
+ constants
+
+Using a prefix for these constants avoids overlap with other unrelated
+constants from other header files.
+
+Bug: 486143390
+Change-Id: I292d4628aca5244fc6238bf3aee9c7930a2c39e8
+Signed-off-by: Alice Ryhl <aliceryhl@google.com>
+Bug: 510699950
+---
+ drivers/android/binder/rust_binder.h | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/android/binder/rust_binder.h b/drivers/android/binder/rust_binder.h
+index 016a7e6a11f0..665ee158b232 100644
+--- a/drivers/android/binder/rust_binder.h
++++ b/drivers/android/binder/rust_binder.h
+@@ -175,8 +175,8 @@ static inline binder_uintptr_t rust_binder_node_ptr(rust_binder_node t)
+  * with BR_SPAWN_LOOPER, and an entered looper is one that userspace decided to
+  * create on its own volition.
+  */
+-#define LOOPER_REGISTERED 0x01
+-#define LOOPER_ENTERED 0x02
+-#define LOOPER_EXITED 0x04
++#define RB_LOOPER_REGISTERED 0x01
++#define RB_LOOPER_ENTERED 0x02
++#define RB_LOOPER_EXITED 0x04
+ 
+ #endif
+-- 
+2.50.1
+

@@ -1,0 +1,339 @@
+From 4d1467cebc755a07cbc5a7d357de6f3d25103b01 Mon Sep 17 00:00:00 2001
+From: Carlos Llamas <cmllamas@google.com>
+Date: Fri, 29 May 2026 13:28:40 +0000
+Subject: [PATCH 215/223] BACKPORT: FROMLIST: rust_binder: report netlink
+ transactions
+
+The Android Binder driver supports a netlink API that reports
+transaction *failures* to a userspace daemon. This allows devices to
+monitor processes with many failed transactions so that it can e.g. kill
+misbehaving apps.
+
+One very important thing that this monitors is when many oneway messages
+are sent to a frozen process, so there is special handling to ensure
+this scenario is surfaced over netlink.
+
+Signed-off-by: Carlos Llamas <cmllamas@google.com>
+Co-developed-by: Alice Ryhl <aliceryhl@google.com>
+Acked-by: Carlos Llamas <cmllamas@google.com>
+Link: https://lore.kernel.org/r/20260529-binder-netlink-v6-3-92dd74b6a32e@google.com
+Bug: 489341806
+Change-Id: I5f2276ed67f30c143df0d20995267b3cb0eb4173
+[aliceryhl: resolved minor conflicts in drivers/android/Kconfig, drivers/android/binder/Kconfig, drivers/android/binder/rust_binder_main.rs, and drivers/android/binder/thread.rs, adapted netlink.rs for 6.12, and adapted to support runtime binder detection]
+Signed-off-by: Alice Ryhl <aliceryhl@google.com>
+Bug: 522161277
+---
+ drivers/android/binder/Kconfig             |   2 +-
+ drivers/android/binder/netlink.rs          | 119 +++++++++++++++++++++
+ drivers/android/binder/rust_binder_main.rs |  14 ++-
+ drivers/android/binder/thread.rs           |  11 +-
+ drivers/android/binder/transaction.rs      |  40 +++++++
+ rust/uapi/uapi_helper.h                    |   1 +
+ 6 files changed, 181 insertions(+), 6 deletions(-)
+ create mode 100644 drivers/android/binder/netlink.rs
+
+diff --git a/drivers/android/binder/Kconfig b/drivers/android/binder/Kconfig
+index 95dead4edd61..8e3b8d081bd3 100644
+--- a/drivers/android/binder/Kconfig
++++ b/drivers/android/binder/Kconfig
+@@ -2,7 +2,7 @@
+ 
+ config ANDROID_BINDER_IPC_RUST
+ 	tristate "Rust version of Android Binder IPC Driver"
+-	depends on RUST && MMU
++	depends on RUST && MMU && NET
+ 	help
+ 	  This enables the Rust implementation of the Binder driver. At this
+ 	  time, the Rust implementation can only be built as an alternative to
+diff --git a/drivers/android/binder/netlink.rs b/drivers/android/binder/netlink.rs
+new file mode 100644
+index 000000000000..a521bcf15c7e
+--- /dev/null
++++ b/drivers/android/binder/netlink.rs
+@@ -0,0 +1,119 @@
++// SPDX-License-Identifier: ((GPL-2.0 WITH Linux-syscall-note) OR BSD-3-Clause)
++/* Based on: Documentation/netlink/specs/binder.yaml */
++
++#![allow(unreachable_pub, clippy::wrong_self_convention)]
++use kernel::{
++    ffi::c_int,
++    net::netlink::{
++        Family,
++        GenlMsg,
++        MulticastGroup,
++        NetlinkSkBuff, //
++    },
++    prelude::*, //
++};
++
++pub static BINDER_NL_FAMILY: Family = Family::const_new(
++    &crate::THIS_MODULE,
++    kernel::uapi::BINDER_FAMILY_NAME,
++    kernel::uapi::BINDER_FAMILY_VERSION,
++    &BINDER_NL_FAMILY_MCGRPS,
++);
++
++static BINDER_NL_FAMILY_MCGRPS: [MulticastGroup; 1] =
++    [MulticastGroup::const_new(kernel::c_str!("report"))];
++
++/// A multicast event sent to userspace subscribers to notify them about
++/// binder transaction failures. The generated report provides the full
++/// details of the specific transaction that failed. The intention is for
++/// programs to monitor these events and react to the failures as needed.
++pub struct Report {
++    skb: GenlMsg,
++}
++
++impl Report {
++    /// Create a new multicast message.
++    pub fn new(
++        size: usize,
++        portid: u32,
++        seq: u32,
++        flags: kernel::alloc::Flags,
++    ) -> Result<Self, kernel::alloc::AllocError> {
++        const BINDER_CMD_REPORT: u8 = kernel::uapi::BINDER_CMD_REPORT as u8;
++        let skb = NetlinkSkBuff::new(size, flags)?;
++        let skb = skb.genlmsg_put(portid, seq, &BINDER_NL_FAMILY, BINDER_CMD_REPORT)?;
++        Ok(Self { skb })
++    }
++
++    /// Broadcast this message.
++    pub fn multicast(self, portid: u32, flags: kernel::alloc::Flags) -> Result {
++        self.skb.multicast(&BINDER_NL_FAMILY, portid, 0, flags)
++    }
++
++    /// Check if this message type has listeners.
++    pub fn has_listeners() -> bool {
++        BINDER_NL_FAMILY.has_listeners(0)
++    }
++
++    /// The enum binder_driver_return_protocol returned to the sender.
++    pub fn error(&mut self, val: u32) -> Result {
++        const BINDER_A_REPORT_ERROR: c_int = kernel::uapi::BINDER_A_REPORT_ERROR as c_int;
++        self.skb.put_u32(BINDER_A_REPORT_ERROR, val)
++    }
++
++    /// The binder context where the transaction occurred.
++    pub fn context(&mut self, val: &CStr) -> Result {
++        const BINDER_A_REPORT_CONTEXT: c_int = kernel::uapi::BINDER_A_REPORT_CONTEXT as c_int;
++        self.skb.put_string(BINDER_A_REPORT_CONTEXT, val)
++    }
++
++    /// The PID of the sender process.
++    pub fn from_pid(&mut self, val: u32) -> Result {
++        const BINDER_A_REPORT_FROM_PID: c_int = kernel::uapi::BINDER_A_REPORT_FROM_PID as c_int;
++        self.skb.put_u32(BINDER_A_REPORT_FROM_PID, val)
++    }
++
++    /// The TID of the sender thread.
++    pub fn from_tid(&mut self, val: u32) -> Result {
++        const BINDER_A_REPORT_FROM_TID: c_int = kernel::uapi::BINDER_A_REPORT_FROM_TID as c_int;
++        self.skb.put_u32(BINDER_A_REPORT_FROM_TID, val)
++    }
++
++    /// The PID of the recipient process. This attribute may not be present
++    /// if the target could not be determined.
++    pub fn to_pid(&mut self, val: u32) -> Result {
++        const BINDER_A_REPORT_TO_PID: c_int = kernel::uapi::BINDER_A_REPORT_TO_PID as c_int;
++        self.skb.put_u32(BINDER_A_REPORT_TO_PID, val)
++    }
++
++    /// The TID of the recipient thread. This attribute may not be present
++    /// if the target could not be determined.
++    pub fn to_tid(&mut self, val: u32) -> Result {
++        const BINDER_A_REPORT_TO_TID: c_int = kernel::uapi::BINDER_A_REPORT_TO_TID as c_int;
++        self.skb.put_u32(BINDER_A_REPORT_TO_TID, val)
++    }
++
++    /// When present, indicates the failed transaction is a reply.
++    pub fn is_reply(&mut self) -> Result {
++        const BINDER_A_REPORT_IS_REPLY: c_int = kernel::uapi::BINDER_A_REPORT_IS_REPLY as c_int;
++        self.skb.put_flag(BINDER_A_REPORT_IS_REPLY)
++    }
++
++    /// The bitmask of enum transaction_flags from the transaction.
++    pub fn flags(&mut self, val: u32) -> Result {
++        const BINDER_A_REPORT_FLAGS: c_int = kernel::uapi::BINDER_A_REPORT_FLAGS as c_int;
++        self.skb.put_u32(BINDER_A_REPORT_FLAGS, val)
++    }
++
++    /// The application-defined code from the transaction.
++    pub fn code(&mut self, val: u32) -> Result {
++        const BINDER_A_REPORT_CODE: c_int = kernel::uapi::BINDER_A_REPORT_CODE as c_int;
++        self.skb.put_u32(BINDER_A_REPORT_CODE, val)
++    }
++
++    /// The transaction payload size in bytes.
++    pub fn data_size(&mut self, val: u32) -> Result {
++        const BINDER_A_REPORT_DATA_SIZE: c_int = kernel::uapi::BINDER_A_REPORT_DATA_SIZE as c_int;
++        self.skb.put_u32(BINDER_A_REPORT_DATA_SIZE, val)
++    }
++}
+diff --git a/drivers/android/binder/rust_binder_main.rs b/drivers/android/binder/rust_binder_main.rs
+index 33945d3e423c..cc206d7c5d0d 100644
+--- a/drivers/android/binder/rust_binder_main.rs
++++ b/drivers/android/binder/rust_binder_main.rs
+@@ -31,6 +31,7 @@
+ mod deferred_close;
+ mod defs;
+ mod error;
++mod netlink;
+ mod node;
+ mod page_range;
+ mod prio;
+@@ -298,7 +299,9 @@ fn ptr_align(value: usize) -> Option<usize> {
+ // SAFETY: We call register in `init`.
+ static BINDER_SHRINKER: Shrinker = unsafe { Shrinker::new() };
+ 
+-struct BinderModule {}
++struct BinderModule {
++    _netlink: Option<kernel::net::netlink::Registration>,
++}
+ 
+ impl kernel::Module for BinderModule {
+     fn init(_module: &'static kernel::ThisModule) -> Result<Self> {
+@@ -322,24 +325,27 @@ fn init(_module: &'static kernel::ThisModule) -> Result<Self> {
+             if binder_use_rust == 0 {
+                 #[cfg(CONFIG_EVENT_TRACING)]
+                 binder_remove_trace_events(_module.as_ptr());
+-                return Ok(Self {});
++                return Ok(Self { _netlink: None });
+             }
+             if unload_binder() != 0 {
+                 pr_err!("Failed to unload C Binder.");
+                 #[cfg(CONFIG_EVENT_TRACING)]
+                 binder_remove_trace_events(_module.as_ptr());
+-                return Ok(Self {});
++                return Ok(Self { _netlink: None });
+             }
+         }
+ 
+         pr_warn!("Loaded Rust Binder.");
+ 
++        let netlink = crate::netlink::BINDER_NL_FAMILY.register()?;
+         BINDER_SHRINKER.register(kernel::c_str!("android-binder"))?;
+ 
+         // SAFETY: The module is being loaded, so we can initialize binderfs.
+         unsafe { kernel::error::to_result(binderfs::init_rust_binderfs())? };
+ 
+-        Ok(Self {})
++        Ok(Self {
++            _netlink: Some(netlink),
++        })
+     }
+ }
+ 
+diff --git a/drivers/android/binder/thread.rs b/drivers/android/binder/thread.rs
+index 64603a490aa7..e0a7f178572b 100644
+--- a/drivers/android/binder/thread.rs
++++ b/drivers/android/binder/thread.rs
+@@ -1416,6 +1416,15 @@ fn transaction(self: &Arc<Self>, cmd: u32, reader: &mut UserSliceReader) -> Resu
+             }
+         }
+ 
++        if info.oneway_spam_suspect {
++            // If this is both a oneway spam suspect and a failure, we report it twice. This is
++            // useful in case the transaction failed with BR_TRANSACTION_PENDING_FROZEN.
++            info.report_netlink(BR_ONEWAY_SPAM_SUSPECT, &self.process.ctx);
++        }
++        if info.reply != 0 {
++            info.report_netlink(info.reply, &self.process.ctx);
++        }
++
+         Ok(())
+     }
+ 
+@@ -1486,11 +1495,11 @@ fn reply_inner(self: &Arc<Self>, info: &mut TransactionInfo) -> BinderResult {
+                 info.from_tid,
+                 info.to_pid
+             );
+-
+             let param = err.source.as_ref().map_or(0, |e| e.to_errno());
+             let ee = ExtendedError::new(info.debug_id as u32, err.reply, param);
+             orig.from
+                 .deliver_reply(Err(BR_FAILED_REPLY), &orig, Some(ee));
++            info.reply = BR_FAILED_REPLY;
+             err.reply = BR_TRANSACTION_COMPLETE;
+             err
+         });
+diff --git a/drivers/android/binder/transaction.rs b/drivers/android/binder/transaction.rs
+index 49be67b0aa6e..02fd94072dc3 100644
+--- a/drivers/android/binder/transaction.rs
++++ b/drivers/android/binder/transaction.rs
+@@ -4,6 +4,7 @@
+ 
+ use core::sync::atomic::{AtomicBool, Ordering};
+ use kernel::{
++    net::netlink::GENLMSG_DEFAULT_SIZE,
+     prelude::*,
+     seq_file::SeqFile,
+     seq_print,
+@@ -18,6 +19,7 @@
+     allocation::{Allocation, TranslatedFds},
+     defs::*,
+     error::{BinderError, BinderResult},
++    netlink::Report,
+     node::{Node, NodeRef},
+     prio::{self, BinderPriority, PriorityState},
+     process::{Process, ProcessInner},
+@@ -51,6 +53,44 @@ impl TransactionInfo {
+     pub(crate) fn is_oneway(&self) -> bool {
+         self.flags & TF_ONE_WAY != 0
+     }
++
++    pub(crate) fn report_netlink(&self, reply: u32, ctx: &crate::Context) {
++        if let Err(err) = self.report_netlink_inner(reply, ctx) {
++            pr_warn!(
++                "{}:{} netlink report failed: {err:?}\n",
++                self.from_pid,
++                self.from_tid
++            );
++        }
++    }
++
++    fn report_netlink_inner(&self, reply: u32, ctx: &crate::Context) -> kernel::error::Result {
++        if !Report::has_listeners() {
++            return Ok(());
++        }
++        let mut report = Report::new(GENLMSG_DEFAULT_SIZE, 0, 0, GFP_KERNEL)?;
++
++        report.error(reply)?;
++        report.context(&ctx.name)?;
++        report.from_pid(self.from_pid as u32)?;
++        report.from_tid(self.from_tid as u32)?;
++        if self.to_pid != 0 {
++            report.to_pid(self.to_pid as u32)?;
++        }
++        if self.to_tid != 0 {
++            report.to_tid(self.to_tid as u32)?;
++        }
++
++        if self.is_reply {
++            report.is_reply()?;
++        }
++        report.flags(self.flags)?;
++        report.code(self.code)?;
++        report.data_size(self.data_size as u32)?;
++
++        report.multicast(0, GFP_KERNEL)?;
++        Ok(())
++    }
+ }
+ 
+ use core::mem::offset_of;
+diff --git a/rust/uapi/uapi_helper.h b/rust/uapi/uapi_helper.h
+index a972ca2e3c01..b2f307f73518 100644
+--- a/rust/uapi/uapi_helper.h
++++ b/rust/uapi/uapi_helper.h
+@@ -8,6 +8,7 @@
+ 
+ #include <uapi/asm-generic/ioctl.h>
+ #include <uapi/linux/android/binder.h>
++#include <uapi/linux/android/binder_netlink.h>
+ #include <uapi/linux/mdio.h>
+ #include <uapi/linux/mii.h>
+ #include <uapi/linux/ethtool.h>
+-- 
+2.50.1
+

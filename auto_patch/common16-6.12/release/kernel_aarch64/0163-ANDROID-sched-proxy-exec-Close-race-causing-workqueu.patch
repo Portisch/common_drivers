@@ -1,0 +1,111 @@
+From d2246958d8fe254df7ea845f6868ef9302ae1b2e Mon Sep 17 00:00:00 2001
+From: John Stultz <jstultz@google.com>
+Date: Thu, 23 Apr 2026 21:27:38 +0000
+Subject: [PATCH 163/223] ANDROID: sched: proxy-exec: Close race causing
+ workqueue work being delayed
+
+Vineeth reported seeing a KVM related deadlock connected to work
+queue lockups using the android17-6.18 tree, which has
+Proxy Execution enabled (using the full patch stack).
+
+On further debugging he found:
+- kvm-irqfd-cleanup workqueue and rcu_gp lands in a per-cpu
+  pwq(work queue pool)
+- one of kvm-irqfd-cleanup worker(say A) takes a mutex and then
+  calls synchronize_srcu_expedited()
+- one other kvm-irqfd-cleanup worker worker(Say B) tries to
+  acquire the lock and then gets blocked
+- On the way to blocking, this cpu gets an IPI and on return
+  from IPI, it calls __schedule() and did not get to complete
+  workqueue accounting(worker->sleeping = 0 and decrementing
+  pool->nr_running). This is done in sched_submit_work() ->
+  wq_worker_sleeping() called from schedule() and we got
+  preempted before that.
+- proxy execution doesn't immediately take it off run queue as
+  p->blocked_on is set during __mutex_lock
+- Next time when B is picked for running, it notices A(mutex
+  holder) is blocked and then blocks B.
+  find_proxy_task() -> proxy_enqueue_on_owner() -> block_task()
+- And things are then stuck. A is waiting for the workqueue to
+  be run, but B can't run the workqueue as it is blocked on A.
+
+The trouble is that with Proxy Execution, in
+__mutex_lock_common() we set the task state to
+TASK_UNINTERRUPTIBLE, and set blocked_on before calling into
+schedule(), where sched_submit_work() will be called.
+
+But if an IPI comes in before we call schedule() the interrupt
+will call __schedule(SM_PREEMPT) directly. This causes the
+scheduler to see the current task as blocked_on, and deactivate
+it (because the owner is off the runqueue).
+
+Since its deactivated, it wont' be run, and it won't get to
+call sched_submit_work().
+
+Without proxy-execution, the SM_PREEMPT case will prevent the
+task from being dequeued, and it can be reselected again and
+run, which will allow it to finish calling into schedule()
+and calling sched_submit_work() before actually blocking.
+
+So we need to make sure on the SM_PREEMPT case, if current is
+marked as blocked_on, we should clear the blocked_on state and
+mark the task RUNNABLE so the task can be selected to complete
+its call to schedule() -> sched_submit_work().
+
+Now because we cleared BLOCKED_ON and set the task RUNNABLE,
+the task will be able to be selected and run again and loop back
+in __mutex_lock_common() where it can re-set the blocked_on
+state and call back into schedule() in order to properly be
+chosen as a donor.
+
+Many thanks to Vineeth for figuring this very obscure race out
+and for implementing a test tool to make it easily reproducible!
+
+NOTE: Upstream wanted a different appraoch, which is still
+being determined. This will likely be reverted later and
+replaced by the approach with usptream consensus. But in the
+short term, this resolves a bug that is biting users.
+
+v2:
+* Narrow the case where we set TASK_RUNNING to only when
+  TASK_NORMAL states
+
+Reported-by: Vineeth Pillai <vineethrp@google.com>
+Signed-off-by: John Stultz <jstultz@google.com>
+Change-Id: Ide4836344977d65442698c7048a4dfebdec21b03
+Bug: 516716063
+Bug: 492326648
+Bug: 505439420
+Fixes: be41bde4c3a8 ("sched: Add an initial sketch of the find_proxy_task() function")
+(cherry picked from commit b5d6bd9d8749f09b6c37d9fa63562b82a3822bda)
+---
+ kernel/sched/core.c | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
+
+diff --git a/kernel/sched/core.c b/kernel/sched/core.c
+index 5180f2e82eb3..d1d0df3e4afc 100644
+--- a/kernel/sched/core.c
++++ b/kernel/sched/core.c
+@@ -7787,6 +7787,19 @@ static void __sched notrace __schedule(int sched_mode)
+ 		block = try_to_block_task(rq, prev, &prev_state,
+ 					  !task_is_blocked(prev));
+ 		switch_count = &prev->nvcsw;
++	} else if (preempt && prev->blocked_on) {
++		/*
++		 * If we are SM_PREEMPT, we may have interrupted
++		 * after blocked_on was set, before schedule()
++		 * was run, preventing workques from running. So
++		 * clear blocked_on and mark task RUNNING so it
++		 * can be reselected to run and complete its
++		 * logic
++		 */
++		if (prev_state & TASK_NORMAL) {
++			WRITE_ONCE(prev->__state, TASK_RUNNING);
++			force_blocked_on_runnable(prev);
++		}
+ 	}
+ 
+ 	prev_not_proxied = !prev->blocked_donor;
+-- 
+2.50.1
+

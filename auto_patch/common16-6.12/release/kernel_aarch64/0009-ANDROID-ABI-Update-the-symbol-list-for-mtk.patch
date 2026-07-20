@@ -1,7 +1,7 @@
 From e749f7ac59a994f53af7706abd47476bbafeab1b Mon Sep 17 00:00:00 2001
 From: Seiya Wang <seiya.wang@mediatek.com>
 Date: Mon, 23 Mar 2026 11:50:40 +0800
-Subject: [PATCH 09/63] ANDROID: ABI: Update the symbol list for mtk
+Subject: [PATCH 009/223] ANDROID: ABI: Update the symbol list for mtk
 
 3 function symbol(s) added
   'struct socket* tun_get_socket(struct file*)'

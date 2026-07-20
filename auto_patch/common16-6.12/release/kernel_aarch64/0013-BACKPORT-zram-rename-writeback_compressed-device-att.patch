@@ -1,7 +1,8 @@
 From 7493308f000b8019f4a2d2c89a55715111d1252f Mon Sep 17 00:00:00 2001
 From: Sergey Senozhatsky <senozhatsky@chromium.org>
 Date: Thu, 26 Feb 2026 11:54:21 +0900
-Subject: [PATCH 13/63] BACKPORT: zram: rename writeback_compressed device attr
+Subject: [PATCH 013/223] BACKPORT: zram: rename writeback_compressed device
+ attr
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit

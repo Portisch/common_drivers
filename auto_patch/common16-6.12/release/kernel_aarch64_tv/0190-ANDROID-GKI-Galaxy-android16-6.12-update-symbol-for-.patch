@@ -1,0 +1,101 @@
+From 103ea3389d6efbd8378a6d7006826a164da1ef48 Mon Sep 17 00:00:00 2001
+From: "sejeong.na" <sejeong.na@samsung.com>
+Date: Thu, 7 May 2026 19:32:37 +0900
+Subject: [PATCH 190/223] ANDROID: GKI: Galaxy android16-6.12 update symbol for
+ adsp factory
+
+1 function symbol(s) added
+  'void netlink_ack(struct sk_buff*, struct nlmsghdr*, int, const struct netlink_ext_ack*)'
+
+netlink_ack : it is used for netlink communication between kernel(adsp factory) and factory daemon (sensor_kernel_bridge).
+
+Bug: 510923480
+Bug: 521572062
+Change-Id: I154f014b530752131f2ca06ca7724507538a6cc0
+Signed-off-by: sejeong.na <sejeong.na@samsung.com>
+(cherry picked from commit 5efa9ec22e39d81237e6b9cefecfef3d547378ed)
+---
+ gki/aarch64/abi.stg        | 28 ++++++++++++++++++++++++++++
+ gki/aarch64/symbols/galaxy |  2 ++
+ 2 files changed, 30 insertions(+)
+
+diff --git a/gki/aarch64/abi.stg b/gki/aarch64/abi.stg
+index 163c7782ceba..ae860cff4599 100644
+--- a/gki/aarch64/abi.stg
++++ b/gki/aarch64/abi.stg
+@@ -37018,6 +37018,11 @@ pointer_reference {
+   kind: POINTER
+   pointee_type_id: 0xd159863f
+ }
++pointer_reference {
++  id: 0x3ec77a5e
++  kind: POINTER
++  pointee_type_id: 0xd15d0fe4
++}
+ pointer_reference {
+   id: 0x3ec7cfc4
+   kind: POINTER
+@@ -41728,6 +41733,11 @@ qualified {
+   qualifier: CONST
+   qualified_type_id: 0x34bdcf99
+ }
++qualified {
++  id: 0xd15d0fe4
++  qualifier: CONST
++  qualified_type_id: 0x35338919
++}
+ qualified {
+   id: 0xd1740ca6
+   qualifier: CONST
+@@ -379609,6 +379619,14 @@ function {
+   parameter_id: 0x0d107c2b
+   parameter_id: 0x295c7202
+ }
++function {
++  id: 0x119c2286
++  return_type_id: 0x48b5725f
++  parameter_id: 0x054f691a
++  parameter_id: 0x13a69eb7
++  parameter_id: 0x6720d32f
++  parameter_id: 0x3ec77a5e
++}
+ function {
+   id: 0x119d5131
+   return_type_id: 0x48b5725f
+@@ -493688,6 +493706,15 @@ elf_symbol {
+   type_id: 0x1604193e
+   full_name: "netif_tx_wake_queue"
+ }
++elf_symbol {
++  id: 0x894a0130
++  name: "netlink_ack"
++  is_defined: true
++  symbol_type: FUNCTION
++  crc: 0x5c7cefe3
++  type_id: 0x119c2286
++  full_name: "netlink_ack"
++}
+ elf_symbol {
+   id: 0xab1506fb
+   name: "netlink_broadcast"
+@@ -533896,6 +533923,7 @@ interface {
+   symbol_id: 0xcad08fbc
+   symbol_id: 0xbf885171
+   symbol_id: 0x8cb67134
++  symbol_id: 0x894a0130
+   symbol_id: 0xab1506fb
+   symbol_id: 0x712179c0
+   symbol_id: 0x8a6ce95c
+diff --git a/gki/aarch64/symbols/galaxy b/gki/aarch64/symbols/galaxy
+index 0b38170e1e08..717e4dc5b3ce 100644
+--- a/gki/aarch64/symbols/galaxy
++++ b/gki/aarch64/symbols/galaxy
+@@ -243,3 +243,5 @@
+   blkcg_root
+   blkcg_activate_policy
+   blkcg_deactivate_policy
++  netlink_ack
++
+-- 
+2.50.1
+

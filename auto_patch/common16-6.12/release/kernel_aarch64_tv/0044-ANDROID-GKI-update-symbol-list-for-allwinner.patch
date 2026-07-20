@@ -1,7 +1,7 @@
 From 6bcce5ea56614dbcfdc37e7dcf690ea660d96b78 Mon Sep 17 00:00:00 2001
 From: Aran Dalton <arda@allwinnertech.com>
 Date: Tue, 24 Mar 2026 15:31:32 +0800
-Subject: [PATCH 44/63] ANDROID: GKI: update symbol list for allwinner
+Subject: [PATCH 044/223] ANDROID: GKI: update symbol list for allwinner
 
 2 function symbol(s) added
   'loff_t no_seek_end_llseek(struct file*, loff_t, int)'

@@ -1,7 +1,7 @@
 From ab9eba5ac30d4dd5775554b6b9d263b2bd0aa7bb Mon Sep 17 00:00:00 2001
 From: Aran Dalton <arda@allwinnertech.com>
 Date: Thu, 26 Mar 2026 19:53:34 +0800
-Subject: [PATCH 45/63] ANDROID: GKI: update symbol list for allwinner
+Subject: [PATCH 045/223] ANDROID: GKI: update symbol list for allwinner
 
 5 function symbol(s) added
   'int hdmi_drm_infoframe_check(struct hdmi_drm_infoframe*)'

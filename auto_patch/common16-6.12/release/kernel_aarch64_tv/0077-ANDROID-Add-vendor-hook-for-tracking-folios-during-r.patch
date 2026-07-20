@@ -1,0 +1,88 @@
+From 06e0048106f0f671cafe90893346b4091b40926a Mon Sep 17 00:00:00 2001
+From: daiyang5 <daiyang5@xiaomi.com>
+Date: Mon, 9 Mar 2026 20:06:20 +0800
+Subject: [PATCH 077/223] ANDROID: Add vendor hook for tracking folios during
+ readahead
+
+Add vendor hook android_vh_readahead_add_folio before adding a folio to
+the page cache during readahead, enabling vendor modules to monitor and
+optimize readahead pages.
+
+Bug: 491161822
+Bug: 502721110
+
+Change-Id: I5cca4fdb646da04993b832a53e9f6afa1de53ae5
+Signed-off-by: daiyang5 <daiyang5@xiaomi.com>
+(cherry picked from commit b250bb0533d9197a12005ff547f5b5de81c9d7f4)
+---
+ drivers/android/vendor_hooks.c | 1 +
+ include/trace/hooks/mm.h       | 3 +++
+ mm/readahead.c                 | 5 +++++
+ 3 files changed, 9 insertions(+)
+
+diff --git a/drivers/android/vendor_hooks.c b/drivers/android/vendor_hooks.c
+index 51e32f032e7a..23c5bd9e7e49 100644
+--- a/drivers/android/vendor_hooks.c
++++ b/drivers/android/vendor_hooks.c
+@@ -482,6 +482,7 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_alloc_pages_slowpath_start);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_alloc_pages_slowpath_end);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_alloc_contig_range_not_isolated);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_warn_alloc_tune_ratelimit);
++EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_readahead_add_folio);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_warn_alloc_show_mem_bypass);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_use_vm_swappiness);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_tune_scan_control);
+diff --git a/include/trace/hooks/mm.h b/include/trace/hooks/mm.h
+index 809a9346f0f9..729f31fd92b8 100644
+--- a/include/trace/hooks/mm.h
++++ b/include/trace/hooks/mm.h
+@@ -752,6 +752,9 @@ DECLARE_HOOK(android_vh_folio_add_file_rmap,
+ 	TP_PROTO(struct folio *folio, struct page *page, int nr_pages,
+ 		 int level),
+ 	TP_ARGS(folio, page, nr_pages, level));
++DECLARE_HOOK(android_vh_readahead_add_folio,
++	TP_PROTO(struct folio *folio, struct address_space *mapping),
++	TP_ARGS(folio, mapping));
+ DECLARE_HOOK(android_vh_folio_remove_rmap,
+ 	TP_PROTO(struct folio *folio, struct page *page, int nr_pages,
+ 		 int level),
+diff --git a/mm/readahead.c b/mm/readahead.c
+index 9f928fe41359..10e9b15b3b47 100644
+--- a/mm/readahead.c
++++ b/mm/readahead.c
+@@ -297,6 +297,8 @@ void page_cache_ra_unbounded(struct readahead_control *ractl,
+ 		if (!folio)
+ 			break;
+ 
++		trace_android_vh_readahead_add_folio(folio, mapping);
++
+ 		ret = filemap_add_folio(mapping, folio, index + i, gfp_mask);
+ 		if (ret < 0) {
+ 			folio_put(folio);
+@@ -477,6 +479,7 @@ static inline int ra_alloc_folio(struct readahead_control *ractl, pgoff_t index,
+ 	mark = round_down(mark, 1UL << order);
+ 	if (index == mark)
+ 		folio_set_readahead(folio);
++	trace_android_vh_readahead_add_folio(folio, ractl->mapping);
+ 	err = filemap_add_folio(ractl->mapping, folio, index, gfp);
+ 	if (err) {
+ 		folio_put(folio);
+@@ -830,6 +833,7 @@ void readahead_expand(struct readahead_control *ractl,
+ 		if (!folio)
+ 			return;
+ 
++		trace_android_vh_readahead_add_folio(folio, mapping);
+ 		index = mapping_align_index(mapping, index);
+ 		if (filemap_add_folio(mapping, folio, index, gfp_mask) < 0) {
+ 			folio_put(folio);
+@@ -859,6 +863,7 @@ void readahead_expand(struct readahead_control *ractl,
+ 		if (!folio)
+ 			return;
+ 
++		trace_android_vh_readahead_add_folio(folio, mapping);
+ 		index = mapping_align_index(mapping, index);
+ 		if (filemap_add_folio(mapping, folio, index, gfp_mask) < 0) {
+ 			folio_put(folio);
+-- 
+2.50.1
+

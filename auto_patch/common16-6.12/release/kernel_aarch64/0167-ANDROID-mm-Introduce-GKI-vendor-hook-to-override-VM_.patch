@@ -1,0 +1,77 @@
+From 1f09a09d9fdd03abbcef1cdd9e9c4fa9a6606513 Mon Sep 17 00:00:00 2001
+From: Kensuke Miyagi <kemiyagi@google.com>
+Date: Tue, 26 May 2026 15:45:17 -0700
+Subject: [PATCH 167/223] ANDROID: mm: Introduce GKI vendor hook to override
+ VM_EXEC folio order
+
+Introduce a new GKI vendor hook 'android_vh_override_exec_folio_order'
+inside the file-backed VM_EXEC mapping readahead miss path.
+
+On low-RAM systems under fragmentation pressure, GKI's default 64KB
+contiguous memory mapping requirement on executable pages triggers severe
+page cache thrashing and storage read-amplification bottlenecks. By passing
+the active VMA context and a mutable pointer to the page order, this GKI
+vendor hook enables SoC/OEM dynamic loadable modules to programmatically
+override page allocation bounds (e.g. forcing a precise, low-overhead 4KB
+granularity target for resource-stressed processes) at runtime.
+
+Note: When implementing this vendor hook handler, developers must be careful
+not to introduce heavy or complex dynamic query logic (especially around
+VMA/VME context walks, task structure lookups, or string comparisons). If
+heavy or complex filtering operations are introduced, a more thorough
+performance evaluation is required to assess hot-path page fault latency
+overhead, beyond simple static constant overrides (e.g., unconditionally
+forcing the order to 0).
+
+Bug: 516853839
+Bug: 517148567
+Change-Id: Ieac535c63795cbb70527abaf8634a25adcfa7aa6
+Signed-off-by: Kensuke Miyagi <kemiyagi@google.com>
+---
+ drivers/android/vendor_hooks.c | 1 +
+ include/trace/hooks/mm.h       | 3 +++
+ mm/filemap.c                   | 4 +++-
+ 3 files changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/android/vendor_hooks.c b/drivers/android/vendor_hooks.c
+index d9149a4fe650..1653cb7b56e2 100644
+--- a/drivers/android/vendor_hooks.c
++++ b/drivers/android/vendor_hooks.c
+@@ -743,3 +743,4 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_lock_task_fork);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_lock_task_exit);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_read_swap_cache_async_timeout);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_skip_cma);
++EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_override_exec_folio_order);
+diff --git a/include/trace/hooks/mm.h b/include/trace/hooks/mm.h
+index 3bfa5621534a..2879314236c5 100644
+--- a/include/trace/hooks/mm.h
++++ b/include/trace/hooks/mm.h
+@@ -791,6 +791,9 @@ DECLARE_HOOK(android_vh_cma_alloc_lat_end,
+ DECLARE_RESTRICTED_HOOK(android_rvh_read_swap_cache_async_timeout,
+ 	TP_PROTO(size_t *count, bool *skip),
+ 	TP_ARGS(count, skip), 2);
++DECLARE_HOOK(android_vh_override_exec_folio_order,
++	TP_PROTO(struct vm_area_struct *vma, unsigned int *order),
++	TP_ARGS(vma, order));
+ #endif /* _TRACE_HOOK_MM_H */
+ 
+ /* This part must be outside protection */
+diff --git a/mm/filemap.c b/mm/filemap.c
+index 65ed72600b95..15ffeb6cfcd4 100644
+--- a/mm/filemap.c
++++ b/mm/filemap.c
+@@ -3363,8 +3363,10 @@ static struct file *do_sync_mmap_readahead(struct vm_fault *vmf)
+ 		unsigned long start = vma->vm_pgoff;
+ 		unsigned long end = start + vma_pages(vma);
+ 		unsigned long ra_end;
++		unsigned int order = exec_folio_order();
+ 
+-		ra_mmap_miss->order = exec_folio_order();
++		trace_android_vh_override_exec_folio_order(vma, &order);
++		ra_mmap_miss->order = order;
+ 		ra->start = round_down(vmf->pgoff, 1UL << ra_mmap_miss->order);
+ 		ra->start = max(ra->start, start);
+ 		ra_end = round_up(ra->start + ra->ra_pages,
+-- 
+2.50.1
+

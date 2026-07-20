@@ -1,7 +1,7 @@
 From 416b206a77782d627ae6e205c4dda3b7d80e339c Mon Sep 17 00:00:00 2001
 From: Udipto Goswami <udipto.goswami@oss.qualcomm.com>
 Date: Wed, 18 Mar 2026 22:39:21 +0530
-Subject: [PATCH 38/63] ANDROID: usb: xhci: Add vendor hook for xhci offload
+Subject: [PATCH 038/223] ANDROID: usb: xhci: Add vendor hook for xhci offload
  event handling
 
 Add android_vh_xhci_handle_offload vendor hook to allow vendor-specific

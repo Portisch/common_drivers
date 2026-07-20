@@ -1,7 +1,7 @@
 From 2493fb133b9f8f2138c28873d57fd27405fb33f4 Mon Sep 17 00:00:00 2001
 From: Badhri Jagan Sridharan <badhri@google.com>
 Date: Mon, 31 May 2021 15:19:54 -0700
-Subject: [PATCH 02/63] ANDROID: usb: typec: tcpm: Add vendor hook for tcpm
+Subject: [PATCH 002/223] ANDROID: usb: typec: tcpm: Add vendor hook for tcpm
  logs
 
 Link: https://lore.kernel.org/lkml/2025110336-hummus-stank-e5ff@gregkh/

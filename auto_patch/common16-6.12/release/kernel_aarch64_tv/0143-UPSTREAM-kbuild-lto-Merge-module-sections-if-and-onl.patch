@@ -1,0 +1,62 @@
+From da6f52870d667073186e1f337fb4a20953a79533 Mon Sep 17 00:00:00 2001
+From: Sean Christopherson <seanjc@google.com>
+Date: Mon, 22 Mar 2021 16:44:38 -0700
+Subject: [PATCH 143/223] UPSTREAM: kbuild: lto: Merge module sections if and
+ only if CONFIG_LTO_CLANG is enabled
+
+Merge module sections only when using Clang LTO. With ld.bfd, merging
+sections does not appear to update the symbol tables for the module,
+e.g. 'readelf -s' shows the value that a symbol would have had, if
+sections were not merged. ld.lld does not show this problem.
+
+The stale symbol table breaks gdb's function disassembler, and presumably
+other things, e.g.
+
+  gdb -batch -ex "file arch/x86/kvm/kvm.ko" -ex "disassemble kvm_init"
+
+reads the wrong bytes and dumps garbage.
+
+Fixes: dd2776222abb ("kbuild: lto: merge module sections")
+Cc: Nick Desaulniers <ndesaulniers@google.com>
+Signed-off-by: Sean Christopherson <seanjc@google.com>
+Reviewed-by: Sami Tolvanen <samitolvanen@google.com>
+Tested-by: Sami Tolvanen <samitolvanen@google.com>
+Signed-off-by: Kees Cook <keescook@chromium.org>
+Link: https://lore.kernel.org/r/20210322234438.502582-1-seanjc@google.com
+
+[resolved merge conflicts in scripts/module.lds.S]
+
+Bug: 497941020
+Bug: 512403003
+Test: tools/bazel build //common:kernel_x86_64 --kasan
+Change-Id: I3ef49d713bd2d2a25c017d245a7da373442ac240
+(cherry picked from commit 6a3193cdd5e5b96ac65f04ee42555c216da332af)
+Signed-off-by: Giuliano Procida <gprocida@google.com>
+Signed-off-by: Srinivasarao Pathipati <c_spathi@qti.qualcomm.com>
+---
+ scripts/module.lds.S | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/scripts/module.lds.S b/scripts/module.lds.S
+index ab93bc701948..d1d0f56c3c6d 100644
+--- a/scripts/module.lds.S
++++ b/scripts/module.lds.S
+@@ -65,6 +65,7 @@ SECTIONS {
+ 	}
+ #endif
+ 
++#ifdef CONFIG_LTO_CLANG
+ 	/*
+ 	 * With CONFIG_LTO_CLANG, LLD always enables -fdata-sections and
+ 	 * -ffunction-sections, which increases the size of the final module.
+@@ -93,6 +94,7 @@ SECTIONS {
+ 		*(.text.._end)
+ 		*(.text.._fips140_unchecked)
+ 	}
++#endif
+ 	MOD_SEPARATE_CODETAG_SECTIONS()
+ }
+ 
+-- 
+2.50.1
+

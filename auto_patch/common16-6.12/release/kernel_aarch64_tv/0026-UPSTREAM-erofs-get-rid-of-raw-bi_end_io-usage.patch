@@ -1,7 +1,7 @@
 From 30ed1466cace0eba0a58035726f5126002d26f41 Mon Sep 17 00:00:00 2001
 From: Gao Xiang <hsiangkao@linux.alibaba.com>
 Date: Thu, 27 Nov 2025 16:07:56 +0800
-Subject: [PATCH 26/63] UPSTREAM: erofs: get rid of raw bi_end_io() usage
+Subject: [PATCH 026/223] UPSTREAM: erofs: get rid of raw bi_end_io() usage
 
 These BIOs are actually harmless in practice, as they are all pseudo
 BIOs and do not use advanced features like chaining.  Using the BIO

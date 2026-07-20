@@ -1,0 +1,51 @@
+From 7de6a75ab52be5b87bfd5c500c0b19b3722f96d9 Mon Sep 17 00:00:00 2001
+From: Nicholas Carlini <nicholas@carlini.com>
+Date: Tue, 31 Mar 2026 15:25:32 +0200
+Subject: [PATCH 188/223] UPSTREAM: eventpoll: defer struct eventpoll free to
+ RCU grace period
+
+[ Upstream commit 07712db80857d5d09ae08f3df85a708ecfc3b61f ]
+
+In certain situations, ep_free() in eventpoll.c will kfree the epi->ep
+eventpoll struct while it still being used by another concurrent thread.
+Defer the kfree() to an RCU callback to prevent UAF.
+
+Bug: 496716086
+Fixes: f2e467a48287 ("eventpoll: Fix semi-unbounded recursion")
+Signed-off-by: Nicholas Carlini <nicholas@carlini.com>
+Signed-off-by: Christian Brauner <brauner@kernel.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+(cherry picked from commit 7e8083f5eeedab0f460063b9c2c14c9a4e71a427)
+Signed-off-by: Lee Jones <joneslee@google.com>
+Change-Id: I7cb1ad9edf2cae7fb7c2eb050043d5a694ec9fd7
+---
+ fs/eventpoll.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/fs/eventpoll.c b/fs/eventpoll.c
+index 00feb3308b4d..a605368d71c3 100644
+--- a/fs/eventpoll.c
++++ b/fs/eventpoll.c
+@@ -228,6 +228,9 @@ struct eventpoll {
+ 	 */
+ 	refcount_t refcount;
+ 
++	/* used to defer freeing past ep_get_upwards_depth_proc() RCU walk */
++	struct rcu_head rcu;
++
+ #ifdef CONFIG_NET_RX_BUSY_POLL
+ 	/* used to track busy poll napi_id */
+ 	unsigned int napi_id;
+@@ -792,7 +795,8 @@ static void ep_free(struct eventpoll *ep)
+ 	mutex_destroy(&ep->mtx);
+ 	free_uid(ep->user);
+ 	wakeup_source_unregister(ep->ws);
+-	kfree(ep);
++	/* ep_get_upwards_depth_proc() may still hold epi->ep under RCU */
++	kfree_rcu(ep, rcu);
+ }
+ 
+ /*
+-- 
+2.50.1
+

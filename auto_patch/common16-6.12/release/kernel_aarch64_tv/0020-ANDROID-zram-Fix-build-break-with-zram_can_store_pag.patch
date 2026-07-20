@@ -1,7 +1,7 @@
 From a3e5e2f9bb61183b0395a47e6b49820b76638fd7 Mon Sep 17 00:00:00 2001
 From: Richard Chang <richardycc@google.com>
 Date: Tue, 24 Mar 2026 04:53:55 +0000
-Subject: [PATCH 20/63] ANDROID: zram: Fix build break with
+Subject: [PATCH 020/223] ANDROID: zram: Fix build break with
  zram_can_store_pages w/o CONFIG_ZRAM_WRITEBACK
 
 The zram_can_store_page() function was added in commit

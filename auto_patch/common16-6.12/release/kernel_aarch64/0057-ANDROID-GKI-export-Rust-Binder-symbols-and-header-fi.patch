@@ -1,7 +1,7 @@
 From ebdd1a4984c681d55d25a5d5097323168376a09f Mon Sep 17 00:00:00 2001
 From: Alice Ryhl <aliceryhl@google.com>
 Date: Tue, 3 Mar 2026 15:10:20 +0000
-Subject: [PATCH 57/63] ANDROID: GKI: export Rust Binder symbols and header
+Subject: [PATCH 057/223] ANDROID: GKI: export Rust Binder symbols and header
  files
 
 Vendor hooks will need to access the Rust Binder symbols for the hooks,

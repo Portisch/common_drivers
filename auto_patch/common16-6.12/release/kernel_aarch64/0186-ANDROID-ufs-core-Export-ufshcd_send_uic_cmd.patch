@@ -1,0 +1,31 @@
+From cf7b60b1fb7522b7046e224d0d096ecd05450925 Mon Sep 17 00:00:00 2001
+From: Bart Van Assche <bvanassche@google.com>
+Date: Thu, 4 Jun 2026 13:52:53 -0700
+Subject: [PATCH 186/223] ANDROID: ufs: core: Export ufshcd_send_uic_cmd()
+
+Make ufshcd_send_uic_cmd() available to UFS host drivers.
+
+Bug: 503802344
+Bug: 516849018
+Bug: 520501725
+Change-Id: I80217662d53aaf4b0b3d39c4fa077d48a91e5560
+Signed-off-by: Bart Van Assche <bvanassche@google.com>
+---
+ drivers/ufs/core/ufshcd.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/ufs/core/ufshcd.c b/drivers/ufs/core/ufshcd.c
+index 5c7bde5fe363..e52109a5462f 100644
+--- a/drivers/ufs/core/ufshcd.c
++++ b/drivers/ufs/core/ufshcd.c
+@@ -2670,6 +2670,7 @@ int ufshcd_send_uic_cmd(struct ufs_hba *hba, struct uic_command *uic_cmd)
+ 	ufshcd_release(hba);
+ 	return ret;
+ }
++EXPORT_SYMBOL(ufshcd_send_uic_cmd);
+ 
+ /**
+  * ufshcd_sgl_to_prdt - SG list to PRTD (Physical Region Description Table, 4DW format)
+-- 
+2.50.1
+

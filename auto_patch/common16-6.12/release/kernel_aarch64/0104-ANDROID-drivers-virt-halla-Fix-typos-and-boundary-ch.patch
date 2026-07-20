@@ -1,0 +1,172 @@
+From 6bdc1d413f1183e0f0a06b197b8b100032b73b9a Mon Sep 17 00:00:00 2001
+From: Kim Mankyum <mankyum.kim@samsung.com>
+Date: Tue, 14 Apr 2026 16:50:51 +0900
+Subject: [PATCH 104/223] ANDROID: drivers: virt: halla: Fix typos and boundary
+ checks
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Fix multiple issues:
+
+1. hvm_debug.c: Use snprintf return value for copy_to_user length
+   - Previously used sizeof(tmp) instead of actual written length
+   - Could cause incorrect data size to be copied
+
+2. hvm_vcpu.c: Fix vCPU ID boundary check
+   - Changed from > to >= for proper array bounds checking
+   - Prevents out-of-bounds array access
+
+3. hvm_vm.c: Add missing bounds check for vcpu_idx
+   - Added validation before accessing hvm->vcpus array
+   - Prevents potential buffer overflow
+
+4. Typo fixes across multiple files:
+   - hvm_drv.h: "drvier" → "driver"
+   - hvm_ioeventfd.c: "collison" → "collision"
+   - hvm_vm.c: "destory" → "destroy"
+
+Bug: 504684617
+Bug: 506868704
+Change-Id: Ib65c5a045eae4fa9aaeaa697c72c99103140717e
+Signed-off-by: Kim Mankyum <mankyum.kim@samsung.com>
+---
+ drivers/virt/halla/hvm_debug.c     | 11 ++++++-----
+ drivers/virt/halla/hvm_drv.h       |  2 +-
+ drivers/virt/halla/hvm_ioeventfd.c |  6 +++---
+ drivers/virt/halla/hvm_vcpu.c      |  2 +-
+ drivers/virt/halla/hvm_vm.c        | 11 ++++++++---
+ 5 files changed, 19 insertions(+), 13 deletions(-)
+
+diff --git a/drivers/virt/halla/hvm_debug.c b/drivers/virt/halla/hvm_debug.c
+index d3b4f2fdd204..e8defa87e2dd 100644
+--- a/drivers/virt/halla/hvm_debug.c
++++ b/drivers/virt/halla/hvm_debug.c
+@@ -14,6 +14,7 @@ static ssize_t translate_addr_ops_get_pa(struct file *file, char __user *buf,
+ {
+ 	char tmp[64] = {0, };
+ 	struct hvm *vm = file->private_data;
++	int wr_len;
+ 	u64 ipa, pa;
+ 	u64 ret;
+ 
+@@ -25,11 +26,11 @@ static ssize_t translate_addr_ops_get_pa(struct file *file, char __user *buf,
+ 				vm->vm_id, ipa, 0);
+ 
+ 		if (ret == -ENOMEM) {
+-			snprintf(tmp, sizeof(tmp),
++			wr_len = snprintf(tmp, sizeof(tmp),
+ 				"Invalid address 0x%llx: Outside of vm memory\n", ipa);
+ 			goto exit;
+ 		} else if (ret == -EFAULT) {
+-			snprintf(tmp, sizeof(tmp),
++			wr_len = snprintf(tmp, sizeof(tmp),
+ 				"Invalid address 0x%llx: Not mapped\n", ipa);
+ 			goto exit;
+ 		}
+@@ -41,16 +42,16 @@ static ssize_t translate_addr_ops_get_pa(struct file *file, char __user *buf,
+ 				vm->vm_id, ipa, 0);
+ 
+ 		if (ret == -EFAULT) {
+-			snprintf(tmp, sizeof(tmp),
++			wr_len = snprintf(tmp, sizeof(tmp),
+ 				"Invalid address 0X%llx: Not mapped\n", ipa);
+ 			goto exit;
+ 		}
+ 
+-		snprintf(tmp, sizeof(tmp), "0x%llx -> 0x%llx: %s\n",
++		wr_len = snprintf(tmp, sizeof(tmp), "0x%llx -> 0x%llx: %s\n",
+ 				ipa, pa, (ret ? "Shared w/ host" : "Protected"));
+ 
+ exit:
+-		if (copy_to_user(buf, tmp, sizeof(tmp)))
++		if (copy_to_user(buf, tmp, wr_len))
+ 			return -EFAULT;
+ 
+ 		*offset += sizeof(tmp);
+diff --git a/drivers/virt/halla/hvm_drv.h b/drivers/virt/halla/hvm_drv.h
+index a07bbd0c303a..3018b94fa1a9 100644
+--- a/drivers/virt/halla/hvm_drv.h
++++ b/drivers/virt/halla/hvm_drv.h
+@@ -19,7 +19,7 @@
+ #include <linux/types.h>
+ 
+ 
+-/* UAPI data structure between kernel drvier and user space */
++/* UAPI data structure between kernel driver and user space */
+ /* HVM ioctls */
+ #define HVM_IOC_MAGIC			0x4C	/* halla */
+ 
+diff --git a/drivers/virt/halla/hvm_ioeventfd.c b/drivers/virt/halla/hvm_ioeventfd.c
+index ecfbf054af62..9d59e61b094f 100644
+--- a/drivers/virt/halla/hvm_ioeventfd.c
++++ b/drivers/virt/halla/hvm_ioeventfd.c
+@@ -15,13 +15,13 @@
+ #include "hvm_drv.h"
+ 
+ /**
+- * ioeventfd_check_collision() - Check collison assumes hvm->ioevent_lock held.
++ * ioeventfd_check_collision() - Check collision assumes hvm->ioevent_lock held.
+  * @: Pointer to hvm.
+  * @p: Pointer to hvm_ioevent.
+  *
+  * Return:
+- * * true			- collison found
+- * * false			- no collison
++ * * true			- collision found
++ * * false			- no collision
+  */
+ static bool ioeventfd_check_collision(struct hvm *hvm, struct hvm_ioevent *p)
+ {
+diff --git a/drivers/virt/halla/hvm_vcpu.c b/drivers/virt/halla/hvm_vcpu.c
+index aee7a52181a0..62d74ab94ed3 100644
+--- a/drivers/virt/halla/hvm_vcpu.c
++++ b/drivers/virt/halla/hvm_vcpu.c
+@@ -386,7 +386,7 @@ int hvm_vm_ioctl_create_vcpu(struct hvm *hvm, u32 cpuid)
+ 	struct hvm_vcpu *vcpu;
+ 	int ret;
+ 
+-	if (cpuid > HVM_MAX_VCPUS)
++	if (cpuid >= HVM_MAX_VCPUS)
+ 		return -EINVAL;
+ 
+ 	vcpu = kzalloc(sizeof(*vcpu), GFP_KERNEL);
+diff --git a/drivers/virt/halla/hvm_vm.c b/drivers/virt/halla/hvm_vm.c
+index 0c87265834c6..57aeb2555aac 100644
+--- a/drivers/virt/halla/hvm_vm.c
++++ b/drivers/virt/halla/hvm_vm.c
+@@ -149,7 +149,12 @@ int hvm_inject_irq(struct hvm *hvm, unsigned int vcpu_idx,
+ {
+ 	unsigned long ret;
+ 	u64 ids;
+-	struct hvm_vcpu *vcpu = hvm->vcpus[vcpu_idx];
++	struct hvm_vcpu *vcpu;
++
++	if (vcpu_idx >= HVM_MAX_VCPUS)
++		return -EINVAL;
++
++	vcpu = hvm->vcpus[vcpu_idx];
+ 
+ 	ids = (u32)hvm->vm_id;
+ 	ids = (ids << 16) | vcpu_idx;
+@@ -279,7 +284,7 @@ static int set_dtb_config(struct hvm *hvm, struct hvm_dtb_config *cfg)
+ 	return (int)ret;
+ }
+ 
+-static unsigned long hvm_pre_destory_vm(struct hvm *hvm)
++static unsigned long hvm_pre_destroy_vm(struct hvm *hvm)
+ {
+ 	return exynos_hvc(HVC_FID_HVM_PRE_DESTROY_VM,
+ 			  hvm->vm_id, 0, 0, 0);
+@@ -372,7 +377,7 @@ static void hvm_destroy_vm(struct hvm *hvm)
+ 
+ 	mutex_lock(&hvm->lock);
+ 
+-	hvm_pre_destory_vm(hvm);
++	hvm_pre_destroy_vm(hvm);
+ 
+ 	hvm_vm_irqfd_release(hvm);
+ 
+-- 
+2.50.1
+

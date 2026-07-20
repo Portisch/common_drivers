@@ -1,0 +1,67 @@
+From 5d76dfbeac1f55802615dc8c3584b994ea86ec26 Mon Sep 17 00:00:00 2001
+From: "T.J. Mercier" <tjmercier@google.com>
+Date: Wed, 25 Feb 2026 14:34:02 -0800
+Subject: [PATCH 110/223] UPSTREAM: kernfs: Don't set_nlink for directories
+ being removed
+
+If a directory is already in the process of removal its i_nlink count
+becomes irrelevant because its contents are also about to be removed and
+any pending filesystem operations on it or its contents will soon start
+to fail. So we can avoid setting it for directories already flagged for
+removal.
+
+This avoids a race in the next patch, which adds clearing of the i_nlink
+count for kernfs nodes being removed to support inotify delete events.
+
+Use protection from the kernfs_iattr_rwsem to avoid adding more
+contention to the kernfs_rwsem for calls to kernfs_refresh_inode.
+
+Signed-off-by: T.J. Mercier <tjmercier@google.com>
+Tested-by: syzbot@syzkaller.appspotmail.com
+Link: https://patch.msgid.link/20260225223404.783173-2-tjmercier@google.com
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 507d8ce13f5b91d5b4dca7bd4b4e4249e8021cca)
+Bug: 507029684
+Bug: 507463716
+Change-Id: Iff16ad2a735ed26b775ac3d5564e14039e21a112
+Signed-off-by: T.J. Mercier <tjmercier@google.com>
+---
+ fs/kernfs/dir.c   | 2 ++
+ fs/kernfs/inode.c | 2 +-
+ 2 files changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/fs/kernfs/dir.c b/fs/kernfs/dir.c
+index 5dc90a498e75..62c1ac361765 100644
+--- a/fs/kernfs/dir.c
++++ b/fs/kernfs/dir.c
+@@ -1464,12 +1464,14 @@ static void __kernfs_remove(struct kernfs_node *kn)
+ 	pr_debug("kernfs %s: removing\n", kn->name);
+ 
+ 	/* prevent new usage by marking all nodes removing and deactivating */
++	down_write(&kernfs_root(kn)->kernfs_iattr_rwsem);
+ 	pos = NULL;
+ 	while ((pos = kernfs_next_descendant_post(pos, kn))) {
+ 		pos->flags |= KERNFS_REMOVING;
+ 		if (kernfs_active(pos))
+ 			atomic_add(KN_DEACTIVATED_BIAS, &pos->active);
+ 	}
++	up_write(&kernfs_root(kn)->kernfs_iattr_rwsem);
+ 
+ 	/* deactivate and unlink the subtree node-by-node */
+ 	do {
+diff --git a/fs/kernfs/inode.c b/fs/kernfs/inode.c
+index b83054da68b3..f59c42a3eba8 100644
+--- a/fs/kernfs/inode.c
++++ b/fs/kernfs/inode.c
+@@ -176,7 +176,7 @@ static void kernfs_refresh_inode(struct kernfs_node *kn, struct inode *inode)
+ 		 */
+ 		set_inode_attr(inode, attrs);
+ 
+-	if (kernfs_type(kn) == KERNFS_DIR)
++	if (kernfs_type(kn) == KERNFS_DIR && !(kn->flags & KERNFS_REMOVING))
+ 		set_nlink(inode, kn->dir.subdirs + 2);
+ }
+ 
+-- 
+2.50.1
+

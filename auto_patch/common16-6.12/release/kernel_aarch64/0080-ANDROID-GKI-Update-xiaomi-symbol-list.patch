@@ -1,0 +1,280 @@
+From 8db2a064d9549d5b477149a452a79201af2642cb Mon Sep 17 00:00:00 2001
+From: daiyang5 <daiyang5@xiaomi.com>
+Date: Wed, 1 Apr 2026 09:55:10 +0800
+Subject: [PATCH 080/223] ANDROID: GKI: Update xiaomi symbol list
+
+four variable symbol(s) added
+  'struct tracepoint __tracepoint_android_vh_readahead_add_folio'
+  'struct tracepoint __tracepoint_android_vh_folio_skip_activate'
+  'struct tracepoint __tracepoint_android_vh_folio_trylock_clear_bypass'
+  'struct tracepoint __tracepoint_android_vh_filemap_adjust_folio_flags'
+
+one function symbol(s) added
+  'struct mem_cgroup *mem_cgroup_iter(struct mem_cgroup *root,
+				   struct mem_cgroup *prev,
+				   struct mem_cgroup_reclaim_cookie *reclaim)'
+
+Bug: 491161822
+Bug: 502721110
+
+Change-Id: I127fbfd32fb35222888991d18d5007a5bcc5886d
+Signed-off-by: daiyang5 <daiyang5@xiaomi.com>
+(cherry picked from commit 36a4dc05f7bb449dcfa92636ce46afd3ec1e7ed0)
+---
+ gki/aarch64/abi.stg        | 104 +++++++++++++++++++++++++++++++++++++
+ gki/aarch64/symbols/xiaomi |  19 +++++++
+ 2 files changed, 123 insertions(+)
+
+diff --git a/gki/aarch64/abi.stg b/gki/aarch64/abi.stg
+index 85b081da11de..1dfa16926120 100644
+--- a/gki/aarch64/abi.stg
++++ b/gki/aarch64/abi.stg
+@@ -397369,6 +397369,13 @@ function {
+   return_type_id: 0x34c60997
+   parameter_id: 0x3e10b518
+ }
++function {
++  id: 0x6c9b19cf
++  return_type_id: 0x1d5bae2a
++  parameter_id: 0x1d5bae2a
++  parameter_id: 0x1d5bae2a
++  parameter_id: 0x1a5ea01f
++}
+ function {
+   id: 0x6c9e1249
+   return_type_id: 0x348f6886
+@@ -416254,6 +416261,13 @@ function {
+   parameter_id: 0x2170d06d
+   parameter_id: 0x15a30023
+ }
++function {
++  id: 0x9b2f1988
++  return_type_id: 0x6720d32f
++  parameter_id: 0x18bd6530
++  parameter_id: 0x2170d06d
++  parameter_id: 0x1582ab06
++}
+ function {
+   id: 0x9b2f7851
+   return_type_id: 0x6720d32f
+@@ -442954,6 +442968,15 @@ elf_symbol {
+   type_id: 0x9bf1212e
+   full_name: "__traceiter_android_vh_filemap_add_folio"
+ }
++elf_symbol {
++  id: 0xb4752447
++  name: "__traceiter_android_vh_filemap_adjust_folio_flags"
++  is_defined: true
++  symbol_type: FUNCTION
++  crc: 0x0847c3a8
++  type_id: 0x9bf1212e
++  full_name: "__traceiter_android_vh_filemap_adjust_folio_flags"
++}
+ elf_symbol {
+   id: 0x19fc04e0
+   name: "__traceiter_android_vh_filemap_fault_end"
+@@ -443170,6 +443193,24 @@ elf_symbol {
+   type_id: 0x9b2a7922
+   full_name: "__traceiter_android_vh_folio_remove_rmap_ptes"
+ }
++elf_symbol {
++  id: 0xb079e2fd
++  name: "__traceiter_android_vh_folio_skip_activate"
++  is_defined: true
++  symbol_type: FUNCTION
++  crc: 0x53dafb0d
++  type_id: 0x9b2e0ad9
++  full_name: "__traceiter_android_vh_folio_skip_activate"
++}
++elf_symbol {
++  id: 0xa157ce59
++  name: "__traceiter_android_vh_folio_trylock_clear_bypass"
++  is_defined: true
++  symbol_type: FUNCTION
++  crc: 0xde6d7cf3
++  type_id: 0x9b2e0ad9
++  full_name: "__traceiter_android_vh_folio_trylock_clear_bypass"
++}
+ elf_symbol {
+   id: 0xd52e79c4
+   name: "__traceiter_android_vh_folios_put_refs_direct_free"
+@@ -445024,6 +445065,15 @@ elf_symbol {
+   type_id: 0x9b752560
+   full_name: "__traceiter_android_vh_rcu_boost_start"
+ }
++elf_symbol {
++  id: 0x6fe03e45
++  name: "__traceiter_android_vh_readahead_add_folio"
++  is_defined: true
++  symbol_type: FUNCTION
++  crc: 0xc0e0404d
++  type_id: 0x9b2f1988
++  full_name: "__traceiter_android_vh_readahead_add_folio"
++}
+ elf_symbol {
+   id: 0xb6218fbe
+   name: "__traceiter_android_vh_rebalance_anon_lru_bypass"
+@@ -450838,6 +450888,15 @@ elf_symbol {
+   type_id: 0x18ccbd2c
+   full_name: "__tracepoint_android_vh_filemap_add_folio"
+ }
++elf_symbol {
++  id: 0x0bed5ac9
++  name: "__tracepoint_android_vh_filemap_adjust_folio_flags"
++  is_defined: true
++  symbol_type: OBJECT
++  crc: 0x7c5aa8a7
++  type_id: 0x18ccbd2c
++  full_name: "__tracepoint_android_vh_filemap_adjust_folio_flags"
++}
+ elf_symbol {
+   id: 0x197d6be2
+   name: "__tracepoint_android_vh_filemap_fault_end"
+@@ -451054,6 +451113,24 @@ elf_symbol {
+   type_id: 0x18ccbd2c
+   full_name: "__tracepoint_android_vh_folio_remove_rmap_ptes"
+ }
++elf_symbol {
++  id: 0x616c8f3b
++  name: "__tracepoint_android_vh_folio_skip_activate"
++  is_defined: true
++  symbol_type: OBJECT
++  crc: 0x7c5aa8a7
++  type_id: 0x18ccbd2c
++  full_name: "__tracepoint_android_vh_folio_skip_activate"
++}
++elf_symbol {
++  id: 0xfdfb5a53
++  name: "__tracepoint_android_vh_folio_trylock_clear_bypass"
++  is_defined: true
++  symbol_type: OBJECT
++  crc: 0x7c5aa8a7
++  type_id: 0x18ccbd2c
++  full_name: "__tracepoint_android_vh_folio_trylock_clear_bypass"
++}
+ elf_symbol {
+   id: 0xecc0c2b6
+   name: "__tracepoint_android_vh_folios_put_refs_direct_free"
+@@ -452908,6 +452985,15 @@ elf_symbol {
+   type_id: 0x18ccbd2c
+   full_name: "__tracepoint_android_vh_rcu_boost_start"
+ }
++elf_symbol {
++  id: 0xa0e3c9e3
++  name: "__tracepoint_android_vh_readahead_add_folio"
++  is_defined: true
++  symbol_type: OBJECT
++  crc: 0x7c5aa8a7
++  type_id: 0x18ccbd2c
++  full_name: "__tracepoint_android_vh_readahead_add_folio"
++}
+ elf_symbol {
+   id: 0x53ff9924
+   name: "__tracepoint_android_vh_rebalance_anon_lru_bypass"
+@@ -490155,6 +490241,15 @@ elf_symbol {
+   type_id: 0x59f18b0b
+   full_name: "mem_cgroup_from_id"
+ }
++elf_symbol {
++  id: 0xb07b6948
++  name: "mem_cgroup_iter"
++  is_defined: true
++  symbol_type: FUNCTION
++  crc: 0x45aab4d7
++  type_id: 0x6c9b19cf
++  full_name: "mem_cgroup_iter"
++}
+ elf_symbol {
+   id: 0xa9fabdf2
+   name: "mem_cgroup_move_account"
+@@ -527714,6 +527809,7 @@ interface {
+   symbol_id: 0x092000c7
+   symbol_id: 0x150ea575
+   symbol_id: 0x6091a763
++  symbol_id: 0xb4752447
+   symbol_id: 0x19fc04e0
+   symbol_id: 0xbd855995
+   symbol_id: 0x5f6dd48c
+@@ -527738,6 +527834,8 @@ interface {
+   symbol_id: 0x3678bbd5
+   symbol_id: 0x37c66367
+   symbol_id: 0xef70c295
++  symbol_id: 0xb079e2fd
++  symbol_id: 0xa157ce59
+   symbol_id: 0xd52e79c4
+   symbol_id: 0x18234c18
+   symbol_id: 0xb10c10b1
+@@ -527944,6 +528042,7 @@ interface {
+   symbol_id: 0x3a545b61
+   symbol_id: 0xaa42bd9c
+   symbol_id: 0xcf2bdce0
++  symbol_id: 0x6fe03e45
+   symbol_id: 0xb6218fbe
+   symbol_id: 0x7334b2d0
+   symbol_id: 0x95816c0d
+@@ -528590,6 +528689,7 @@ interface {
+   symbol_id: 0x160a4a5d
+   symbol_id: 0x2b59c1a7
+   symbol_id: 0x0c03d499
++  symbol_id: 0x0bed5ac9
+   symbol_id: 0x197d6be2
+   symbol_id: 0xee4c2077
+   symbol_id: 0x1afa87b6
+@@ -528614,6 +528714,8 @@ interface {
+   symbol_id: 0xd3e119c7
+   symbol_id: 0x136a16c5
+   symbol_id: 0xb2684007
++  symbol_id: 0x616c8f3b
++  symbol_id: 0xfdfb5a53
+   symbol_id: 0xecc0c2b6
+   symbol_id: 0xe04fc49a
+   symbol_id: 0xd808cc6f
+@@ -528820,6 +528922,7 @@ interface {
+   symbol_id: 0x811d5fab
+   symbol_id: 0xf0a69156
+   symbol_id: 0x9cdcdb66
++  symbol_id: 0xa0e3c9e3
+   symbol_id: 0x53ff9924
+   symbol_id: 0x1a12ee26
+   symbol_id: 0xfeaae6bb
+@@ -532955,6 +533058,7 @@ interface {
+   symbol_id: 0x8eadb5fd
+   symbol_id: 0x53620815
+   symbol_id: 0x140f40dd
++  symbol_id: 0xb07b6948
+   symbol_id: 0xa9fabdf2
+   symbol_id: 0x6da682ae
+   symbol_id: 0x7f797603
+diff --git a/gki/aarch64/symbols/xiaomi b/gki/aarch64/symbols/xiaomi
+index 8162e84105bb..ac32c6fce67e 100644
+--- a/gki/aarch64/symbols/xiaomi
++++ b/gki/aarch64/symbols/xiaomi
+@@ -477,6 +477,25 @@
+   __traceiter_android_vh_reclaim_before_kswapd
+   __tracepoint_android_vh_reclaim_before_kswapd
+ 
++# required by mi_ext_lru.ko
++mem_cgroup_iter
++__traceiter_android_vh_readahead_add_folio
++__tracepoint_android_vh_readahead_add_folio
++__traceiter_android_vh_mm_split_huge_page_bypass
++__tracepoint_android_vh_mm_split_huge_page_bypass
++__traceiter_android_vh_mm_try_split_folio_bypass
++__tracepoint_android_vh_mm_try_split_folio_bypass
++__traceiter_android_vh_mm_free_page
++__tracepoint_android_vh_mm_free_page
++__traceiter_android_vh_mm_isolate_priv_lru
++__tracepoint_android_vh_mm_isolate_priv_lru
++__traceiter_android_vh_folio_skip_activate
++__tracepoint_android_vh_folio_skip_activate
++__traceiter_android_vh_folio_trylock_clear_bypass
++__tracepoint_android_vh_folio_trylock_clear_bypass
++__traceiter_android_vh_filemap_adjust_folio_flags
++__tracepoint_android_vh_filemap_adjust_folio_flags
++
+ #required by mem_reclaim_ctl.ko
+ __traceiter_android_vh_page_should_be_protected
+ __tracepoint_android_vh_page_should_be_protected
+-- 
+2.50.1
+

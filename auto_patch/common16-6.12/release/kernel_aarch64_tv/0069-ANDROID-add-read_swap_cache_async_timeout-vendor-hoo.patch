@@ -1,0 +1,77 @@
+From 5d199d37969b39a6c587a815ea231feb6a459b8e Mon Sep 17 00:00:00 2001
+From: Joshua Liu <josliu@google.com>
+Date: Mon, 23 Mar 2026 11:29:20 +0000
+Subject: [PATCH 069/223] ANDROID: add read_swap_cache_async_timeout vendor
+ hook
+
+Enable vendor implementation for schedule_timeout_uninterruptible
+
+Bug: 268936123
+Bug: 501639390
+
+Change-Id: Ia3f11ed83e5375fd4bf8ba2cbb1ad3d557e8ded4
+Signed-off-by: Joshua Liu <josliu@google.com>
+(cherry picked from commit 90a840707e326406f7d5dc3b745135956d29942c)
+---
+ drivers/android/vendor_hooks.c | 1 +
+ include/trace/hooks/mm.h       | 3 +++
+ mm/swap_state.c                | 6 ++++++
+ 3 files changed, 10 insertions(+)
+
+diff --git a/drivers/android/vendor_hooks.c b/drivers/android/vendor_hooks.c
+index 9fb80c4fe068..51e32f032e7a 100644
+--- a/drivers/android/vendor_hooks.c
++++ b/drivers/android/vendor_hooks.c
+@@ -728,3 +728,4 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_cma_release_bypass);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_cma_alloc_end);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_typec_tcpm_log);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_pci_pm_verify_state);
++EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_read_swap_cache_async_timeout);
+diff --git a/include/trace/hooks/mm.h b/include/trace/hooks/mm.h
+index 6e3859306b85..809a9346f0f9 100644
+--- a/include/trace/hooks/mm.h
++++ b/include/trace/hooks/mm.h
+@@ -769,6 +769,9 @@ DECLARE_HOOK(android_vh_swap_writepage_end,
+ 	TP_PROTO(struct page *page, struct writeback_control *wbc,
+ 		unsigned long swap_writepage_start),
+ 	TP_ARGS(page, wbc, swap_writepage_start));
++DECLARE_RESTRICTED_HOOK(android_rvh_read_swap_cache_async_timeout,
++	TP_PROTO(size_t *count, bool *skip),
++	TP_ARGS(count, skip), 2);
+ #endif /* _TRACE_HOOK_MM_H */
+ 
+ /* This part must be outside protection */
+diff --git a/mm/swap_state.c b/mm/swap_state.c
+index 5c06d9bf7127..14f33d723c9b 100644
+--- a/mm/swap_state.c
++++ b/mm/swap_state.c
+@@ -442,6 +442,7 @@ struct folio *__read_swap_cache_async(swp_entry_t entry, gfp_t gfp_mask,
+ 	struct folio *new_folio = NULL;
+ 	struct folio *result = NULL;
+ 	void *shadow = NULL;
++	size_t count = 0;
+ 
+ 	*new_page_allocated = false;
+ 	si = get_swap_device(entry);
+@@ -450,6 +451,7 @@ struct folio *__read_swap_cache_async(swp_entry_t entry, gfp_t gfp_mask,
+ 
+ 	for (;;) {
+ 		int err;
++		bool skip = false;
+ 		/*
+ 		 * First check the swap cache.  Since this is normally
+ 		 * called after swap_cache_get_folio() failed, re-calling
+@@ -510,6 +512,10 @@ struct folio *__read_swap_cache_async(swp_entry_t entry, gfp_t gfp_mask,
+ 		 * __read_swap_cache_async(), which has set SWAP_HAS_CACHE
+ 		 * in swap_map, but not yet added its folio to swap cache.
+ 		 */
++		trace_android_rvh_read_swap_cache_async_timeout(&count, &skip);
++		if (skip)
++			continue;
++
+ 		schedule_timeout_uninterruptible(1);
+ 	}
+ 
+-- 
+2.50.1
+

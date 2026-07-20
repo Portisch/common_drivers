@@ -1,0 +1,132 @@
+From 0f0b6b27fd2d0cb34a84d991d308fd0927a5d044 Mon Sep 17 00:00:00 2001
+From: Alice Ryhl <aliceryhl@google.com>
+Date: Tue, 7 Apr 2026 10:52:49 +0000
+Subject: [PATCH 133/223] ANDROID: rust_binder: move rust_binder_hooks.h into
+ include/trace/hooks
+
+Vendor hooks are tracked in include/trace/hooks to make it easier to get
+an overview of the amount of hooks that are exposed. Thus, move the Rust
+Binder hooks.
+
+Bug: 486143390
+Change-Id: I3c420fb637ac3fcc48b41afd7bdff149c7bcc610
+Signed-off-by: Alice Ryhl <aliceryhl@google.com>
+Bug: 510699950
+---
+ drivers/android/binder/rust_binder_hooks.c |  2 +-
+ drivers/android/binder/rust_binder_hooks.h | 32 +-------------------
+ include/trace/hooks/rust_binder.h          | 35 ++++++++++++++++++++++
+ rust/bindings/bindings_helper.h            |  2 +-
+ 4 files changed, 38 insertions(+), 33 deletions(-)
+ create mode 100644 include/trace/hooks/rust_binder.h
+
+diff --git a/drivers/android/binder/rust_binder_hooks.c b/drivers/android/binder/rust_binder_hooks.c
+index 5f70f7c8813e..388a4fb7e465 100644
+--- a/drivers/android/binder/rust_binder_hooks.c
++++ b/drivers/android/binder/rust_binder_hooks.c
+@@ -13,7 +13,7 @@
+ #include <trace/hooks/vendor_hooks.h>
+ #include <linux/tracepoint.h>
+ 
+-#include "rust_binder_hooks.h"
++#include <trace/hooks/rust_binder.h>
+ 
+ /*
+  * Used by vendor hooks to access Rust Binder data structures.
+diff --git a/drivers/android/binder/rust_binder_hooks.h b/drivers/android/binder/rust_binder_hooks.h
+index a62eeeac11a4..d07d13e85f2d 100644
+--- a/drivers/android/binder/rust_binder_hooks.h
++++ b/drivers/android/binder/rust_binder_hooks.h
+@@ -1,33 +1,3 @@
+ /* SPDX-License-Identifier: GPL-2.0-only */
+-/*
+- * Copyright (C) 2024 Google, Inc.
+- */
+ 
+-#undef TRACE_SYSTEM
+-#undef TRACE_INCLUDE_FILE
+-#undef TRACE_INCLUDE_PATH
+-#define TRACE_SYSTEM rust_binder
+-#define TRACE_INCLUDE_FILE rust_binder_hooks
+-#define TRACE_INCLUDE_PATH ../drivers/android/binder
+-
+-#if !defined(_RUST_BINDER_HOOK_H) || defined(TRACE_HEADER_MULTI_READ)
+-#define _RUST_BINDER_HOOK_H
+-
+-#include <trace/hooks/vendor_hooks.h>
+-
+-/*
+- * Following tracepoints are not exported in tracefs and provide a
+- * mechanism for vendor modules to hook and extend functionality
+- */
+-
+-DECLARE_HOOK(android_vh_rust_binder_set_priority,
+-	TP_PROTO(rust_binder_transaction t, struct task_struct *task),
+-	TP_ARGS(t, task));
+-DECLARE_HOOK(android_vh_rust_binder_restore_priority,
+-	TP_PROTO(struct task_struct *task),
+-	TP_ARGS(task));
+-
+-#endif /* _RUST_BINDER_HOOK_H */
+-
+-/* This part must be outside protection */
+-#include <trace/define_trace.h>
++#include <trace/hooks/rust_binder.h>
+diff --git a/include/trace/hooks/rust_binder.h b/include/trace/hooks/rust_binder.h
+new file mode 100644
+index 000000000000..4fcf45b94244
+--- /dev/null
++++ b/include/trace/hooks/rust_binder.h
+@@ -0,0 +1,35 @@
++/* SPDX-License-Identifier: GPL-2.0-only */
++/*
++ * Copyright (C) 2024 Google, Inc.
++ */
++
++#undef TRACE_SYSTEM
++#undef TRACE_INCLUDE_FILE
++#undef TRACE_INCLUDE_PATH
++#define TRACE_SYSTEM rust_binder
++#define TRACE_INCLUDE_FILE rust_binder
++#define TRACE_INCLUDE_PATH trace/hooks
++
++#if !defined(_RUST_BINDER_HOOK_H) || defined(TRACE_HEADER_MULTI_READ)
++#define _RUST_BINDER_HOOK_H
++
++#include <trace/hooks/vendor_hooks.h>
++
++typedef void *rust_binder_transaction;
++
++/*
++ * Following tracepoints are not exported in tracefs and provide a
++ * mechanism for vendor modules to hook and extend functionality
++ */
++
++DECLARE_HOOK(android_vh_rust_binder_set_priority,
++	TP_PROTO(rust_binder_transaction t, struct task_struct *task),
++	TP_ARGS(t, task));
++DECLARE_HOOK(android_vh_rust_binder_restore_priority,
++	TP_PROTO(struct task_struct *task),
++	TP_ARGS(task));
++
++#endif /* _RUST_BINDER_HOOK_H */
++
++/* This part must be outside protection */
++#include <trace/define_trace.h>
+diff --git a/rust/bindings/bindings_helper.h b/rust/bindings/bindings_helper.h
+index 648007afc31c..476ddacd2f94 100644
+--- a/rust/bindings/bindings_helper.h
++++ b/rust/bindings/bindings_helper.h
+@@ -62,8 +62,8 @@ const size_t RUST_CONST_HELPER_ASHMEM_FULL_NAME_LEN = ASHMEM_FULL_NAME_LEN;
+ 
+ #if IS_ENABLED(CONFIG_ANDROID_BINDER_IPC_RUST)
+ #include "../../drivers/android/binder/rust_binder.h"
+-#include "../../drivers/android/binder/rust_binder_hooks.h"
+ #include "../../drivers/android/binder/rust_binder_events.h"
++#include <trace/hooks/rust_binder.h>
+ #include "../../drivers/android/binder/page_range_helper.h"
+ #endif
+ 
+-- 
+2.50.1
+

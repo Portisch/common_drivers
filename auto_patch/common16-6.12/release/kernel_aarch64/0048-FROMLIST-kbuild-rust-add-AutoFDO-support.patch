@@ -1,7 +1,7 @@
 From 09a9b22ce716a057e38d11c946ee142799b1c961 Mon Sep 17 00:00:00 2001
 From: Alice Ryhl <aliceryhl@google.com>
 Date: Fri, 6 Mar 2026 15:31:34 +0000
-Subject: [PATCH 48/63] FROMLIST: kbuild: rust: add AutoFDO support
+Subject: [PATCH 048/223] FROMLIST: kbuild: rust: add AutoFDO support
 
 This patch enables AutoFDO build support for Rust code within the Linux
 kernel. This allows Rust code to be profiled and optimized based on the

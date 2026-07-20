@@ -1,0 +1,35 @@
+From 3bee6d11671dd605b3329b0aa213ab558a4b67b5 Mon Sep 17 00:00:00 2001
+From: Mostafa Saleh <smostafa@google.com>
+Date: Thu, 16 Apr 2026 11:40:26 +0000
+Subject: [PATCH 124/223] ANDROID: KVM: arm64: iommu: Check domain owner first
+ at free_domain
+
+We should check if the requester of free_domain is the owner of the
+domain before decrementing the refcount to avoid corrupting VMs
+domains.
+
+Bug: 503368161
+Change-Id: I0647c42cc615f21946f62a4450ed8b95f8fe32bc
+Signed-off-by: Mostafa Saleh <smostafa@google.com>
+(cherry picked from commit d9b4efaed7a573d245dc5873c7d6c304a9936fdd)
+Signed-off-by: Lee Jones <joneslee@google.com>
+---
+ arch/arm64/kvm/hyp/nvhe/iommu/iommu.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/arm64/kvm/hyp/nvhe/iommu/iommu.c b/arch/arm64/kvm/hyp/nvhe/iommu/iommu.c
+index 2289b2ac2130..240666786a98 100644
+--- a/arch/arm64/kvm/hyp/nvhe/iommu/iommu.c
++++ b/arch/arm64/kvm/hyp/nvhe/iommu/iommu.c
+@@ -549,7 +549,7 @@ int kvm_iommu_free_domain(pkvm_handle_t domain_id)
+ 	if (hyp_vcpu)
+ 		vm = pkvm_hyp_vcpu_to_hyp_vm(hyp_vcpu);
+ 
+-	if (WARN_ON(atomic_cmpxchg_acquire(&domain->refs, 1, 0) != 1) || domain->vm != vm) {
++	if (domain->vm != vm || WARN_ON(atomic_cmpxchg_acquire(&domain->refs, 1, 0) != 1)) {
+ 		ret = -EINVAL;
+ 		goto out_unlock;
+ 	}
+-- 
+2.50.1
+

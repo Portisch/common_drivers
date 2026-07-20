@@ -1,0 +1,155 @@
+From a0f5f1c222570c094ce512d7f0a19453ec8656b9 Mon Sep 17 00:00:00 2001
+From: Chao Yu <chao@kernel.org>
+Date: Fri, 30 Jan 2026 21:28:09 +0800
+Subject: [PATCH 102/223] UPSTREAM: f2fs: introduce trace_f2fs_priority_update
+
+This patch introduces two new tracepoints for debug purpose.
+
+Bug: 408202989
+Bug: 505305733
+Change-Id: I468e7fda2fa6fe94d5038ce480e832d6a10a4249
+Signed-off-by: Chao Yu <chao@kernel.org>
+Signed-off-by: Jaegeuk Kim <jaegeuk@kernel.org>
+(cherry picked from commit bc367775f60214312befa33f101b31fe74bba48a)
+Signed-off-by: Chao Yu <chaseyu@google.com>
+---
+ fs/f2fs/checkpoint.c        | 17 +++++++----
+ include/trace/events/f2fs.h | 57 +++++++++++++++++++++++++++++++++++++
+ 2 files changed, 69 insertions(+), 5 deletions(-)
+
+diff --git a/fs/f2fs/checkpoint.c b/fs/f2fs/checkpoint.c
+index 0ed4f90f2f5a..621ab639df50 100644
+--- a/fs/f2fs/checkpoint.c
++++ b/fs/f2fs/checkpoint.c
+@@ -128,9 +128,13 @@ static void uplift_priority(struct f2fs_rwsem *sem, struct f2fs_lock_context *lc
+ 		return;
+ 	set_user_nice(current, lc->new_nice);
+ 	lc->need_restore = true;
++
++	trace_f2fs_priority_uplift(sem->sbi, sem->name, is_write, current,
++		NICE_TO_PRIO(lc->orig_nice), NICE_TO_PRIO(lc->new_nice));
+ }
+ 
+-static void restore_priority(struct f2fs_lock_context *lc)
++static void restore_priority(struct f2fs_rwsem *sem, struct f2fs_lock_context *lc,
++						bool is_write)
+ {
+ 	if (!lc->need_restore)
+ 		return;
+@@ -138,6 +142,9 @@ static void restore_priority(struct f2fs_lock_context *lc)
+ 	if (task_nice(current) != lc->new_nice)
+ 		return;
+ 	set_user_nice(current, lc->orig_nice);
++
++	trace_f2fs_priority_restore(sem->sbi, sem->name, is_write, current,
++		NICE_TO_PRIO(lc->orig_nice), NICE_TO_PRIO(lc->new_nice));
+ }
+ 
+ void f2fs_down_read_trace(struct f2fs_rwsem *sem, struct f2fs_lock_context *lc)
+@@ -151,7 +158,7 @@ int f2fs_down_read_trylock_trace(struct f2fs_rwsem *sem, struct f2fs_lock_contex
+ {
+ 	uplift_priority(sem, lc, false);
+ 	if (!f2fs_down_read_trylock(sem)) {
+-		restore_priority(lc);
++		restore_priority(sem, lc, false);
+ 		return 0;
+ 	}
+ 	trace_lock_elapsed_time_start(sem, lc);
+@@ -161,7 +168,7 @@ int f2fs_down_read_trylock_trace(struct f2fs_rwsem *sem, struct f2fs_lock_contex
+ void f2fs_up_read_trace(struct f2fs_rwsem *sem, struct f2fs_lock_context *lc)
+ {
+ 	f2fs_up_read(sem);
+-	restore_priority(lc);
++	restore_priority(sem, lc, false);
+ 	trace_lock_elapsed_time_end(sem, lc, false);
+ }
+ 
+@@ -176,7 +183,7 @@ int f2fs_down_write_trylock_trace(struct f2fs_rwsem *sem, struct f2fs_lock_conte
+ {
+ 	uplift_priority(sem, lc, true);
+ 	if (!f2fs_down_write_trylock(sem)) {
+-		restore_priority(lc);
++		restore_priority(sem, lc, true);
+ 		return 0;
+ 	}
+ 	trace_lock_elapsed_time_start(sem, lc);
+@@ -186,7 +193,7 @@ int f2fs_down_write_trylock_trace(struct f2fs_rwsem *sem, struct f2fs_lock_conte
+ void f2fs_up_write_trace(struct f2fs_rwsem *sem, struct f2fs_lock_context *lc)
+ {
+ 	f2fs_up_write(sem);
+-	restore_priority(lc);
++	restore_priority(sem, lc, true);
+ 	trace_lock_elapsed_time_end(sem, lc, true);
+ }
+ 
+diff --git a/include/trace/events/f2fs.h b/include/trace/events/f2fs.h
+index 63150b5ead96..2ae6689a8a2f 100644
+--- a/include/trace/events/f2fs.h
++++ b/include/trace/events/f2fs.h
+@@ -2519,6 +2519,63 @@ TRACE_EVENT(f2fs_lock_elapsed_time,
+ 		__entry->other_time)
+ );
+ 
++DECLARE_EVENT_CLASS(f2fs_priority_update,
++
++	TP_PROTO(struct f2fs_sb_info *sbi, enum f2fs_lock_name lock_name,
++		bool is_write, struct task_struct *p, int orig_prio,
++		int new_prio),
++
++	TP_ARGS(sbi, lock_name, is_write, p, orig_prio, new_prio),
++
++	TP_STRUCT__entry(
++		__field(dev_t, dev)
++		__array(char, comm, TASK_COMM_LEN)
++		__field(pid_t, pid)
++		__field(unsigned int, lock_name)
++		__field(bool, is_write)
++		__field(int, orig_prio)
++		__field(int, new_prio)
++	),
++
++	TP_fast_assign(
++		__entry->dev		= sbi->sb->s_dev;
++		memcpy(__entry->comm, p->comm, TASK_COMM_LEN);
++		__entry->pid		= p->pid;
++		__entry->lock_name	= lock_name;
++		__entry->is_write	= is_write;
++		__entry->orig_prio	= orig_prio;
++		__entry->new_prio	= new_prio;
++	),
++
++	TP_printk("dev = (%d,%d), comm: %s, pid: %d, lock_name: %s, "
++		"lock_type: %s, orig_prio: %d, new_prio: %d",
++		show_dev(__entry->dev),
++		__entry->comm,
++		__entry->pid,
++		show_lock_name(__entry->lock_name),
++		__entry->is_write ? "wlock" : "rlock",
++		__entry->orig_prio,
++		__entry->new_prio)
++);
++
++DEFINE_EVENT(f2fs_priority_update, f2fs_priority_uplift,
++
++	TP_PROTO(struct f2fs_sb_info *sbi, enum f2fs_lock_name lock_name,
++		bool is_write, struct task_struct *p, int orig_prio,
++		int new_prio),
++
++	TP_ARGS(sbi, lock_name, is_write, p, orig_prio, new_prio)
++);
++
++DEFINE_EVENT(f2fs_priority_update, f2fs_priority_restore,
++
++	TP_PROTO(struct f2fs_sb_info *sbi, enum f2fs_lock_name lock_name,
++		bool is_write, struct task_struct *p, int orig_prio,
++		int new_prio),
++
++	TP_ARGS(sbi, lock_name, is_write, p, orig_prio, new_prio)
++);
++
+ #endif /* _TRACE_F2FS_H */
+ 
+  /* This part must be outside protection */
+-- 
+2.50.1
+

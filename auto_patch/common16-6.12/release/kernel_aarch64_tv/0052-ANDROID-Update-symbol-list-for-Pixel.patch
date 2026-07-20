@@ -1,7 +1,7 @@
 From 6f5b26e5ce034336154f91ab8c3e64bdb43062a0 Mon Sep 17 00:00:00 2001
 From: Jaegeuk Kim <jaegeuk@google.com>
 Date: Wed, 1 Apr 2026 18:15:37 +0000
-Subject: [PATCH 52/63] ANDROID: Update symbol list for Pixel
+Subject: [PATCH 052/223] ANDROID: Update symbol list for Pixel
 
 Summary:
 

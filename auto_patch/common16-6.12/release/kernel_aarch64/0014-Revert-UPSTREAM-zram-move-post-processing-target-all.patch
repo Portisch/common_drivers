@@ -1,7 +1,7 @@
 From ef8ee93dce6280ad69f69dc20436e771b2720660 Mon Sep 17 00:00:00 2001
 From: David Stevens <stevensd@google.com>
 Date: Mon, 16 Mar 2026 16:04:26 -0700
-Subject: [PATCH 14/63] Revert "UPSTREAM: zram: move post-processing target
+Subject: [PATCH 014/223] Revert "UPSTREAM: zram: move post-processing target
  allocation"
 
 This reverts commit daa64269d89b48a95112b69292e95462bf7d8109.

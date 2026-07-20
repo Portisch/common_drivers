@@ -1,7 +1,7 @@
 From 58cef84b9272099c1901f401e2fe4b3f71c9c3be Mon Sep 17 00:00:00 2001
 From: Ricardo Ribalda <ribalda@chromium.org>
 Date: Mon, 16 Jun 2025 15:24:39 +0000
-Subject: [PATCH 21/63] UPSTREAM: media: uvcvideo: Handle locks in
+Subject: [PATCH 021/223] UPSTREAM: media: uvcvideo: Handle locks in
  uvc_queue_return_buffers
 
 Most of the calls to uvc_queue_return_buffers() wrap the call with

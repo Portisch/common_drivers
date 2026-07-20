@@ -1,7 +1,7 @@
 From 2617c06cd4830680588866be6bf8f422e8253694 Mon Sep 17 00:00:00 2001
 From: Alice Ryhl <aliceryhl@google.com>
 Date: Tue, 10 Mar 2026 08:34:12 +0000
-Subject: [PATCH 55/63] ANDROID: rust_binder: make rust_binder_hooks built-in
+Subject: [PATCH 055/223] ANDROID: rust_binder: make rust_binder_hooks built-in
 
 Currently, if you attempt to attach to a Rust Binder vendor hook from a
 DDK vendor module, it will fail with unknown symbol errors because GKI

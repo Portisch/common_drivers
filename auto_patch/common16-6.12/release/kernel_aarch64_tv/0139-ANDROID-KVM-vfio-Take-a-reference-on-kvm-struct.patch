@@ -1,0 +1,65 @@
+From c9e345d114aae37b74b0a69bc94f60d57eac25eb Mon Sep 17 00:00:00 2001
+From: Mostafa Saleh <smostafa@google.com>
+Date: Thu, 16 Apr 2026 12:41:47 +0000
+Subject: [PATCH 139/223] ANDROID: KVM: vfio: Take a reference on kvm struct.
+
+The pviommu ops will use the kvm struct but they don't take any
+reference. Which means that the kvm fd can be closed while keeping
+the pviommu pd alive accessible causing UAF from the pviommu fd fops.
+
+Bug: 503387966
+Change-Id: I7934dae79e7a366549ac7cb1388775a26c4065eb
+Signed-off-by: Mostafa Saleh <smostafa@google.com>
+(cherry picked from commit f4633d3767965e89b835bca04981b67cc8aa78bd)
+Signed-off-by: Lee Jones <joneslee@google.com>
+---
+ virt/kvm/vfio.c | 9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
+
+diff --git a/virt/kvm/vfio.c b/virt/kvm/vfio.c
+index c9f2edfe1f85..cc895404905d 100644
+--- a/virt/kvm/vfio.c
++++ b/virt/kvm/vfio.c
+@@ -38,7 +38,7 @@ struct kvm_vfio {
+ 
+ #ifdef CONFIG_VFIO_PKVM_IOMMU
+ struct kvm_pviommu {
+-	struct kvm_device *dev;
++	struct kvm *kvm;
+ 	int fd;
+ };
+ #endif
+@@ -405,7 +405,7 @@ static int kvm_vfio_pviommu_set_config(struct file *fiommu, struct kvm_vfio_iomm
+ 	if (ret)
+ 		goto err_fput;
+ 
+-	ret = kvm_call_hyp_nvhe(__pkvm_pviommu_add_vsid, pviommu->dev->kvm, pviommu->fd,
++	ret = kvm_call_hyp_nvhe(__pkvm_pviommu_add_vsid, pviommu->kvm, pviommu->fd,
+ 				iommu, phys_sid, config->vsid);
+ 
+ err_fput:
+@@ -439,6 +439,7 @@ static int pviommufd_release(struct inode *i, struct file *filp)
+ {
+ 	struct kvm_pviommu *pviommu = filp->private_data;
+ 
++	kvm_put_kvm(pviommu->kvm);
+ 	kfree(pviommu);
+ 	return 0;
+ }
+@@ -459,10 +460,12 @@ static int kvm_vfio_pviommu_attach(struct kvm_device *dev)
+ 	if (!pviommu)
+ 		return -ENOMEM;
+ 
+-	pviommu->dev = dev;
++	pviommu->kvm = dev->kvm;
+ 
++	kvm_get_kvm(dev->kvm);
+ 	filep = anon_inode_getfile("kvm-pviommu", &pviommu_fops, pviommu, O_CLOEXEC);
+ 	if (IS_ERR(filep)) {
++		kvm_put_kvm(dev->kvm);
+ 		kfree(pviommu);
+ 		return PTR_ERR(filep);
+ 	}
+-- 
+2.50.1
+

@@ -1,7 +1,7 @@
 From e29c384f740e78d7110105ade56e031aef690a1c Mon Sep 17 00:00:00 2001
 From: Ricardo Ribalda <ribalda@chromium.org>
 Date: Mon, 16 Jun 2025 15:24:40 +0000
-Subject: [PATCH 22/63] BACKPORT: media: uvcvideo: Split uvc_stop_streaming()
+Subject: [PATCH 022/223] BACKPORT: media: uvcvideo: Split uvc_stop_streaming()
 
 uvc_stop_streaming() is used for meta and video nodes. Split the function
 in two to avoid confusion.

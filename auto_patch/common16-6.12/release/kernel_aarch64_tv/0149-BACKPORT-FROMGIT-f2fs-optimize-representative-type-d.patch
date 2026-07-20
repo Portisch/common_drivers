@@ -1,0 +1,70 @@
+From 6c9833506661b564ae3bedd6378ff80a3718e256 Mon Sep 17 00:00:00 2001
+From: Daeho Jeong <daehojeong@google.com>
+Date: Thu, 14 May 2026 13:55:13 -0700
+Subject: [PATCH 149/223] BACKPORT: FROMGIT: f2fs: optimize representative type
+ determination in GC
+
+In large section mode, do_garbage_collect() previously determined the
+section's representative type by looking only at the first segment of
+the section. However, if data was fsynced into an area previously used
+as a node section, and this area is recovered during roll-forward
+recovery after sudden power off (SPO), GC would incorrectly assume the
+section's type based on an empty or obsolete first segment. This caused
+the recovered data segment to be misunderstood as being stuck inside a
+node section, triggering false inconsistency panics (Inconsistent
+segment type in SSA and SIT) and subsequent mount failures.
+
+This patch optimizes do_garbage_collect() to determine the section's
+representative type by identifying the first segment that actually
+contains valid blocks (valid_blocks > 0) during the main GC loop. This
+eliminates false alarms from empty/obsolete leading segments while
+maintaining strict section-level type consistency checks for genuine
+corruption.
+
+Signed-off-by: Daeho Jeong <daehojeong@google.com>
+Signed-off-by: Jaegeuk Kim <jaegeuk@kernel.org>
+
+Bug: 509983319
+Bug: 513577638
+(cherry picked from commit f8f9d0045df5aa0bb986feeeb72872f1b7476d14
+https: //git.kernel.org/pub/scm/linux/kernel/git/jaegeuk/f2fs.git dev)
+Signed-off-by: Daeho Jeong <daehojeong@google.com>
+Cherrypick-From: https://android-review.googlesource.com/q/commit:f815f5cffc922b8894200a0522dcb04211c469ec
+Merged-In: Id5a9aa88800827faf7e0468f4c7c05182c6b552c
+Change-Id: Id5a9aa88800827faf7e0468f4c7c05182c6b552c
+---
+ fs/f2fs/gc.c | 11 ++++++++---
+ 1 file changed, 8 insertions(+), 3 deletions(-)
+
+diff --git a/fs/f2fs/gc.c b/fs/f2fs/gc.c
+index 648d706b7cdb..62cb0e762039 100644
+--- a/fs/f2fs/gc.c
++++ b/fs/f2fs/gc.c
+@@ -1750,9 +1750,8 @@ static int do_garbage_collect(struct f2fs_sb_info *sbi,
+ 	unsigned int end_segno = start_segno + SEGS_PER_SEC(sbi);
+ 	unsigned int sec_end_segno;
+ 	int seg_freed = 0, migrated = 0;
+-	unsigned char type = IS_DATASEG(get_seg_entry(sbi, segno)->type) ?
+-						SUM_TYPE_DATA : SUM_TYPE_NODE;
+-	unsigned char data_type = (type == SUM_TYPE_DATA) ? DATA : NODE;
++	unsigned char type;
++	unsigned char data_type;
+ 	int submitted = 0;
+ 
+ 	if (__is_large_section(sbi)) {
+@@ -1834,6 +1833,12 @@ static int do_garbage_collect(struct f2fs_sb_info *sbi,
+ 		if (!PageUptodate(sum_page) || unlikely(f2fs_cp_error(sbi)))
+ 			goto skip;
+ 
++		if (migrated == 0) {
++			type = IS_DATASEG(get_seg_entry(sbi, segno)->type) ?
++						SUM_TYPE_DATA : SUM_TYPE_NODE;
++			data_type = (type == SUM_TYPE_DATA) ? DATA : NODE;
++		}
++
+ 		sum = page_address(sum_page);
+ 		if (type != GET_SUM_TYPE((&sum->footer))) {
+ 			f2fs_err(sbi, "Inconsistent segment (%u) type [%d, %d] in SIT and SSA",
+-- 
+2.50.1
+

@@ -1,0 +1,102 @@
+From b133545a642b9239e1917b74ff35179c2d91251c Mon Sep 17 00:00:00 2001
+From: Kensuke Miyagi <kemiyagi@google.com>
+Date: Tue, 26 May 2026 22:20:20 -0700
+Subject: [PATCH 168/223] ANDROID: mm: Update GKI symbol list for
+ override_exec_folio_order hook
+
+Add __tracepoint_android_vh_override_exec_folio_order and
+__traceiter_android_vh_override_exec_folio_order to the GKI
+symbol list. These symbols are required by SoC/OEM dynamic
+loadable modules to attach to the VM_EXEC folio order override hook.
+
+Bug: 516853839
+Bug: 517148567
+Change-Id: I96c3a330e6f29985072c105a5c6ecc8f9d349244
+Signed-off-by: Kensuke Miyagi <kemiyagi@google.com>
+---
+ gki/aarch64/abi.stg                | 27 +++++++++++++++++++++++++++
+ gki/aarch64/symbols/virtual_device |  2 ++
+ 2 files changed, 29 insertions(+)
+
+diff --git a/gki/aarch64/abi.stg b/gki/aarch64/abi.stg
+index cc5a169092a0..fe539a2ba78d 100644
+--- a/gki/aarch64/abi.stg
++++ b/gki/aarch64/abi.stg
+@@ -418302,6 +418302,13 @@ function {
+   parameter_id: 0x6720d32f
+   parameter_id: 0x6720d32f
+ }
++function {
++  id: 0x9b810b3e
++  return_type_id: 0x6720d32f
++  parameter_id: 0x18bd6530
++  parameter_id: 0x0a134144
++  parameter_id: 0x1bf16028
++}
+ function {
+   id: 0x9b817f07
+   return_type_id: 0x6720d32f
+@@ -444890,6 +444897,15 @@ elf_symbol {
+   type_id: 0x9bc3617d
+   full_name: "__traceiter_android_vh_oom_swapmem_gather_init"
+ }
++elf_symbol {
++  id: 0xf7db0bb3
++  name: "__traceiter_android_vh_override_exec_folio_order"
++  is_defined: true
++  symbol_type: FUNCTION
++  crc: 0x2164a222
++  type_id: 0x9b810b3e
++  full_name: "__traceiter_android_vh_override_exec_folio_order"
++}
+ elf_symbol {
+   id: 0xacaadcc9
+   name: "__traceiter_android_vh_page_add_new_anon_rmap"
+@@ -452909,6 +452925,15 @@ elf_symbol {
+   type_id: 0x18ccbd2c
+   full_name: "__tracepoint_android_vh_oom_swapmem_gather_init"
+ }
++elf_symbol {
++  id: 0xd377748d
++  name: "__tracepoint_android_vh_override_exec_folio_order"
++  is_defined: true
++  symbol_type: OBJECT
++  crc: 0x7c5aa8a7
++  type_id: 0x18ccbd2c
++  full_name: "__tracepoint_android_vh_override_exec_folio_order"
++}
+ elf_symbol {
+   id: 0x20d2ceb3
+   name: "__tracepoint_android_vh_page_add_new_anon_rmap"
+@@ -528386,6 +528411,7 @@ interface {
+   symbol_id: 0x2884ad94
+   symbol_id: 0x724577f8
+   symbol_id: 0xac55c769
++  symbol_id: 0xf7db0bb3
+   symbol_id: 0xacaadcc9
+   symbol_id: 0xbf28fbd5
+   symbol_id: 0x7f95d934
+@@ -529277,6 +529303,7 @@ interface {
+   symbol_id: 0x05b8726a
+   symbol_id: 0xdfe6a3ee
+   symbol_id: 0x6bc613d3
++  symbol_id: 0xd377748d
+   symbol_id: 0x20d2ceb3
+   symbol_id: 0x6e9a5b3f
+   symbol_id: 0x62445736
+diff --git a/gki/aarch64/symbols/virtual_device b/gki/aarch64/symbols/virtual_device
+index e17515bc6c73..e3499641b08c 100644
+--- a/gki/aarch64/symbols/virtual_device
++++ b/gki/aarch64/symbols/virtual_device
+@@ -457,6 +457,8 @@
+   trace_handle_return
+   trace_raw_output_prep
+   __trace_trigger_soft_disabled
++  __traceiter_android_vh_override_exec_folio_order
++  __tracepoint_android_vh_override_exec_folio_order
+   unregister_netdev
+   unregister_netdevice_notifier
+   unregister_netdevice_queue
+-- 
+2.50.1
+

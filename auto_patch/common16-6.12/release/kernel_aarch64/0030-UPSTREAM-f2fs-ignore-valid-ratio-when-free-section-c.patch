@@ -1,7 +1,7 @@
 From e1a902cf474b9abe5efb0917dd39d606a16fab65 Mon Sep 17 00:00:00 2001
 From: Daeho Jeong <daehojeong@google.com>
 Date: Fri, 18 Jul 2025 15:04:31 -0700
-Subject: [PATCH 30/63] UPSTREAM: f2fs: ignore valid ratio when free section
+Subject: [PATCH 030/223] UPSTREAM: f2fs: ignore valid ratio when free section
  count is low
 
 Otherwise F2FS will not do GC in background in low free section.

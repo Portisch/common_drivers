@@ -1,0 +1,110 @@
+From 7cb75cc32a4c684ab33cd52a42210be6d640c6ff Mon Sep 17 00:00:00 2001
+From: Joshua Liu <josliu@google.com>
+Date: Tue, 7 Apr 2026 05:36:13 +0000
+Subject: [PATCH 070/223] ANDROID: ABI: pixel: update symbol list
+
+Add the following symbols:
+
+__traceiter_android_vh_read_swap_cache_async_timeout
+__tracepoint_android_vh_read_swap_cache_async_timeout
+
+Bug: 498452657
+Bug: 501639390
+
+Change-Id: I5f86d56f5c93a5e69cda00a09a99366260d7eb10
+Signed-off-by: Joshua Liu <josliu@google.com>
+(cherry picked from commit de5536e7ab69c292700202081634d112d6108295)
+---
+ gki/aarch64/abi.stg       | 27 +++++++++++++++++++++++++++
+ gki/aarch64/symbols/pixel |  2 ++
+ 2 files changed, 29 insertions(+)
+
+diff --git a/gki/aarch64/abi.stg b/gki/aarch64/abi.stg
+index 7f6181f819b8..b1f41302b7d4 100644
+--- a/gki/aarch64/abi.stg
++++ b/gki/aarch64/abi.stg
+@@ -418000,6 +418000,13 @@ function {
+   parameter_id: 0x13580d6c
+   parameter_id: 0x02cc0dbc
+ }
++function {
++  id: 0x9b75bc16
++  return_type_id: 0x6720d32f
++  parameter_id: 0x18bd6530
++  parameter_id: 0x379d63b0
++  parameter_id: 0x11cfee5a
++}
+ function {
+   id: 0x9b76121f
+   return_type_id: 0x6720d32f
+@@ -440679,6 +440686,15 @@ elf_symbol {
+   type_id: 0x9a374ad4
+   full_name: "__traceiter_android_rvh_psci_tos_resident_on"
+ }
++elf_symbol {
++  id: 0xccc56122
++  name: "__traceiter_android_rvh_read_swap_cache_async_timeout"
++  is_defined: true
++  symbol_type: FUNCTION
++  crc: 0x46b11dc7
++  type_id: 0x9b75bc16
++  full_name: "__traceiter_android_rvh_read_swap_cache_async_timeout"
++}
+ elf_symbol {
+   id: 0xeb5708b8
+   name: "__traceiter_android_rvh_reclaim_folio_list"
+@@ -448554,6 +448570,15 @@ elf_symbol {
+   type_id: 0x18ccbd2c
+   full_name: "__tracepoint_android_rvh_psci_tos_resident_on"
+ }
++elf_symbol {
++  id: 0xbdd6ef2c
++  name: "__tracepoint_android_rvh_read_swap_cache_async_timeout"
++  is_defined: true
++  symbol_type: OBJECT
++  crc: 0x7c5aa8a7
++  type_id: 0x18ccbd2c
++  full_name: "__tracepoint_android_rvh_read_swap_cache_async_timeout"
++}
+ elf_symbol {
+   id: 0xeda23c8e
+   name: "__tracepoint_android_rvh_reclaim_folio_list"
+@@ -527395,6 +527420,7 @@ interface {
+   symbol_id: 0x9931b363
+   symbol_id: 0xbd2d27dc
+   symbol_id: 0xe41b0c78
++  symbol_id: 0xccc56122
+   symbol_id: 0xeb5708b8
+   symbol_id: 0x13f466b7
+   symbol_id: 0xc191b2f6
+@@ -528270,6 +528296,7 @@ interface {
+   symbol_id: 0x2bd6c0d5
+   symbol_id: 0xa5e991f6
+   symbol_id: 0x261c997e
++  symbol_id: 0xbdd6ef2c
+   symbol_id: 0xeda23c8e
+   symbol_id: 0x3b6248c1
+   symbol_id: 0x5ac6bcbc
+diff --git a/gki/aarch64/symbols/pixel b/gki/aarch64/symbols/pixel
+index c2aa039634cf..7c46f792e258 100644
+--- a/gki/aarch64/symbols/pixel
++++ b/gki/aarch64/symbols/pixel
+@@ -2776,6 +2776,7 @@
+   __traceiter_android_rvh_post_init_entity_util_avg
+   __traceiter_android_rvh_preempt_disable
+   __traceiter_android_rvh_preempt_enable
++  __traceiter_android_rvh_read_swap_cache_async_timeout
+   __traceiter_android_rvh_reclaim_folio_list
+   __traceiter_android_rvh_remove_entity_load_avg
+   __traceiter_android_rvh_rtmutex_prepare_setprio
+@@ -2935,6 +2936,7 @@
+   __tracepoint_android_rvh_post_init_entity_util_avg
+   __tracepoint_android_rvh_preempt_disable
+   __tracepoint_android_rvh_preempt_enable
++  __tracepoint_android_rvh_read_swap_cache_async_timeout
+   __tracepoint_android_rvh_reclaim_folio_list
+   __tracepoint_android_rvh_remove_entity_load_avg
+   __tracepoint_android_rvh_rtmutex_prepare_setprio
+-- 
+2.50.1
+

@@ -1,7 +1,7 @@
 From 171e925cfef42d0ed182c25639eb14806844bc7f Mon Sep 17 00:00:00 2001
 From: Alice Ryhl <aliceryhl@google.com>
 Date: Fri, 27 Mar 2026 12:56:57 +0000
-Subject: [PATCH 49/63] ANDROID: afdo: update kernel.afdo profile to include
+Subject: [PATCH 049/223] ANDROID: afdo: update kernel.afdo profile to include
  Rust Binder
 
 A kernel.afdo profile was collected using Rust Binder. This commit

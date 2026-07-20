@@ -1,0 +1,60 @@
+From cc3049adf1f639ce8e13475949433f4bbbdb0427 Mon Sep 17 00:00:00 2001
+From: Sooyong Suk <s.suk@samsung.corp-partner.google.com>
+Date: Fri, 5 Jun 2026 18:57:59 +0900
+Subject: [PATCH 206/223] ANDROID: mm: add vendor hook for do_swap_page
+
+In addition to previous commit,
+https://android-review.googlesource.com/c/kernel/common/+/4083384,
+add vendor hooks at start point of newly created swap-in operation.
+
+Bug: 514180992
+Bug: 521571739
+Change-Id: I4d797abe3f10e171791bc8c9ff4ee5d80ea78fbc
+(cherry picked from commit f947ab4ad690ca7678d6f0b8f35b03c447499e57)
+Signed-off-by: Sooyong Suk <s.suk@samsung.corp-partner.google.com>
+---
+ drivers/android/vendor_hooks.c | 1 +
+ include/trace/hooks/mm.h       | 3 +++
+ mm/memory.c                    | 1 +
+ 3 files changed, 5 insertions(+)
+
+diff --git a/drivers/android/vendor_hooks.c b/drivers/android/vendor_hooks.c
+index 34e32fc38859..f132b8be5a08 100644
+--- a/drivers/android/vendor_hooks.c
++++ b/drivers/android/vendor_hooks.c
+@@ -745,5 +745,6 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_read_swap_cache_async_timeout);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_skip_cma);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_override_exec_folio_order);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_do_swap_page_relax);
++EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_do_swap_page_start);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_do_swap_page_done);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_reasm_timer_adjust);
+diff --git a/include/trace/hooks/mm.h b/include/trace/hooks/mm.h
+index e8464cc2d1ff..49be72cca9b6 100644
+--- a/include/trace/hooks/mm.h
++++ b/include/trace/hooks/mm.h
+@@ -37,6 +37,9 @@ DECLARE_RESTRICTED_HOOK(android_rvh_try_alloc_pages_gfp,
+ DECLARE_RESTRICTED_HOOK(android_rvh_do_swap_page_relax,
+ 			TP_PROTO(swp_entry_t entry, bool *bypass),
+ 			TP_ARGS(entry, bypass), 1);
++DECLARE_RESTRICTED_HOOK(android_rvh_do_swap_page_start,
++			TP_PROTO(swp_entry_t entry),
++			TP_ARGS(entry), 1);
+ DECLARE_RESTRICTED_HOOK(android_rvh_shmem_suitable_orders,
+ 			TP_PROTO(struct inode *inode, pgoff_t index,
+ 				unsigned long orders, unsigned long *suitable_orders),
+diff --git a/mm/memory.c b/mm/memory.c
+index 5a06ed288a58..b72aa8614f4c 100644
+--- a/mm/memory.c
++++ b/mm/memory.c
+@@ -4336,6 +4336,7 @@ vm_fault_t do_swap_page(struct vm_fault *vmf)
+ 					remove_wait_queue(&swapcache_wq, &wait);
+ 					goto out_page;
+ 				}
++				trace_android_rvh_do_swap_page_start(entry);
+ 				need_clear_cache = true;
+ 
+ 				mem_cgroup_swapin_uncharge_swap(entry, nr_pages);
+-- 
+2.50.1
+

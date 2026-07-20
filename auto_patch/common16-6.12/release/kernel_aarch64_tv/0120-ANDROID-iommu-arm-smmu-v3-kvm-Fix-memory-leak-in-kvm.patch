@@ -1,0 +1,42 @@
+From cf08276829e5b77a46471131cf84b75450fc3c89 Mon Sep 17 00:00:00 2001
+From: Daniel Mentz <danielmentz@google.com>
+Date: Mon, 4 May 2026 23:10:09 +0000
+Subject: [PATCH 120/223] ANDROID: iommu/arm-smmu-v3-kvm: Fix memory leak in
+ kvm_arm_smmu_alloc_cookie_sg()
+
+In kvm_arm_smmu_alloc_cookie_sg(), the 'map_sg' structure is allocated
+using kzalloc(). If the subsequent allocation for 'map_sg->sg' fails via
+kvm_iommu_sg_alloc(), the function returns NULL without freeing the
+already allocated 'map_sg', leading to a memory leak.
+
+Fix this by adding a kfree(map_sg) call in the error path where
+kvm_iommu_sg_alloc() fails.
+
+Bug: 509981440
+Bug: 509658355
+Fixes: 42ea5698099d ("BACKPORT: FROMLIST: iommu/arm-smmu-v3-kvm: Implement sg operations")
+Change-Id: I152cc8cd7b46241f916314554fe60e949ddbdfba
+Signed-off-by: Daniel Mentz <danielmentz@google.com>
+---
+ drivers/iommu/arm/arm-smmu-v3/arm-smmu-v3-kvm.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/iommu/arm/arm-smmu-v3/arm-smmu-v3-kvm.c b/drivers/iommu/arm/arm-smmu-v3/arm-smmu-v3-kvm.c
+index a632272267ae..a31127f87368 100644
+--- a/drivers/iommu/arm/arm-smmu-v3/arm-smmu-v3-kvm.c
++++ b/drivers/iommu/arm/arm-smmu-v3/arm-smmu-v3-kvm.c
+@@ -552,8 +552,10 @@ static struct iommu_map_cookie_sg *kvm_arm_smmu_alloc_cookie_sg(unsigned long io
+ 	/* Rounds nents to allocate to page aligned size. */
+ 	map_sg->nents = kvm_iommu_sg_nents_round(nents);
+ 	map_sg->sg = kvm_iommu_sg_alloc(map_sg->nents, gfp);
+-	if (!map_sg->sg)
++	if (!map_sg->sg) {
++		kfree(map_sg);
+ 		return NULL;
++	}
+ 	map_sg->iova = iova;
+ 	map_sg->prot = prot;
+ 	map_sg->gfp = gfp;
+-- 
+2.50.1
+

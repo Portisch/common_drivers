@@ -1,0 +1,60 @@
+From 420d12b8f81a6bcf8cc1f6033baf5a05391c915c Mon Sep 17 00:00:00 2001
+From: Kalesh Singh <kaleshsingh@google.com>
+Date: Tue, 7 Apr 2026 17:00:45 -0700
+Subject: [PATCH 132/223] ANDROID: 16K: skip fault-around in ELF segment
+ padding holes
+
+Update do_fault_around() to skip the fault-around optimization when a
+fault occurs within the padding region of an ELF segment VMA. These
+padding regions are essentially holes used to satisfy ELF segment
+alignment requirements in Android and are not expected to be accessed
+under normal conditions.
+
+By verifying the fault offset against the data-backed portion of the
+VMA (nr_data_pages), the kernel avoids unnecessarily populating page
+tables for these padding holes. This ensures that fault-around only
+attempts to map valid file-cache pages within the segment's data range.
+
+Bug: 498369302
+Bug: 498371235
+Change-Id: I9ebf5159a6fcf804efe290cb9481cedb9e9651d0
+Signed-off-by: Kalesh Singh <kaleshsingh@google.com>
+(cherry picked from commit cd8dfe2cb388fea83940c2a80a88c868e42dcd60)
+Signed-off-by: Lee Jones <joneslee@google.com>
+---
+ mm/memory.c | 10 +++++++++-
+ 1 file changed, 9 insertions(+), 1 deletion(-)
+
+diff --git a/mm/memory.c b/mm/memory.c
+index b8dad89fee3f..6fc805acb924 100644
+--- a/mm/memory.c
++++ b/mm/memory.c
+@@ -5289,16 +5289,24 @@ static vm_fault_t do_fault_around(struct vm_fault *vmf)
+ 	pgoff_t pte_off = pte_index(vmf->address);
+ 	/* The page offset of vmf->address within the VMA. */
+ 	pgoff_t vma_off = vmf->pgoff - vmf->vma->vm_pgoff;
++	pgoff_t nr_data_pages = vma_data_pages(vmf->vma);
+ 	pgoff_t from_pte, to_pte;
+ 	vm_fault_t ret;
+ 
++	/*
++	 * Fault occurred in the padding region. There are no file-cache pages
++	 * to map in this region, so skip fault-around.
++	 */
++	if (vma_off >= nr_data_pages)
++		return 0;
++
+ 	/* The PTE offset of the start address, clamped to the VMA. */
+ 	from_pte = max(ALIGN_DOWN(pte_off, nr_pages),
+ 		       pte_off - min(pte_off, vma_off));
+ 
+ 	/* The PTE offset of the end address, clamped to the VMA and PTE. */
+ 	to_pte = min3(from_pte + nr_pages, (pgoff_t)PTRS_PER_PTE,
+-		      pte_off + vma_data_pages(vmf->vma) - vma_off) - 1;
++		      pte_off + nr_data_pages - vma_off) - 1;
+ 
+ 	if (pmd_none(*vmf->pmd)) {
+ 		vmf->prealloc_pte = pte_alloc_one(vmf->vma->vm_mm);
+-- 
+2.50.1
+

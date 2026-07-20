@@ -1,0 +1,60 @@
+From 5220deab3e5bdd917b9196bdfc0dc902083f3bab Mon Sep 17 00:00:00 2001
+From: Bart Van Assche <bvanassche@google.com>
+Date: Thu, 16 Apr 2026 14:42:16 -0700
+Subject: [PATCH 177/223] ANDROID: ufs: core: Implement
+ UFSHCD_ANDROID_QUIRK_AH8_BREAKS_DME
+
+Disable interrupts and preemption while submitting an UIC command if
+UFSHCD_ANDROID_QUIRK_AH8_BREAKS_DME has been set.
+
+Bug: 503802344
+Bug: 516849018
+Bug: 517489432
+Change-Id: Ib2cddda25a8bca7a1378a28860de574f524dfd0b
+Signed-off-by: Bart Van Assche <bvanassche@google.com>
+(cherry picked from commit cb3d27ab1e8637e5ca4e1c0b4ccc71b4edeacf18)
+---
+ drivers/ufs/core/ufshcd.c | 12 +++++++++++-
+ include/ufs/ufshcd.h      |  3 +++
+ 2 files changed, 14 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/ufs/core/ufshcd.c b/drivers/ufs/core/ufshcd.c
+index a01bf92031f0..5c7bde5fe363 100644
+--- a/drivers/ufs/core/ufshcd.c
++++ b/drivers/ufs/core/ufshcd.c
+@@ -2565,7 +2565,17 @@ ufshcd_dispatch_uic_cmd(struct ufs_hba *hba, struct uic_command *uic_cmd)
+ 
+ 	ufshcd_add_uic_command_trace(hba, uic_cmd, UFS_CMD_SEND);
+ 
+-	__ufshcd_dispatch_uic_cmd(hba, uic_cmd);
++	if (hba->android_quirks & UFSHCD_ANDROID_QUIRK_AH8_BREAKS_DME) {
++		unsigned long flags;
++
++		local_irq_save(flags);
++		preempt_disable();
++		__ufshcd_dispatch_uic_cmd(hba, uic_cmd);
++		preempt_enable();
++		local_irq_restore(flags);
++	} else {
++		__ufshcd_dispatch_uic_cmd(hba, uic_cmd);
++	}
+ }
+ 
+ /**
+diff --git a/include/ufs/ufshcd.h b/include/ufs/ufshcd.h
+index 963ac62e5b17..6e0452b64005 100644
+--- a/include/ufs/ufshcd.h
++++ b/include/ufs/ufshcd.h
+@@ -719,6 +719,9 @@ enum ufshcd_android_quirks {
+ 
+ 	/* Initiate Cleanup (ICU) is not supported */
+ 	UFSHCD_ANDROID_QUIRK_MCQ_BROKEN_ICU		= 1 << 2,
++
++	/* AH8 being enabled may break DME */
++	UFSHCD_ANDROID_QUIRK_AH8_BREAKS_DME             = 1 << 31,
+ };
+ 
+ enum ufshcd_caps {
+-- 
+2.50.1
+

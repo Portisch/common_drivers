@@ -1,0 +1,104 @@
+From f436ac85226d568e3ef01bcfe2864fd4050520c2 Mon Sep 17 00:00:00 2001
+From: "T.J. Mercier" <tjmercier@google.com>
+Date: Fri, 27 Mar 2026 13:00:43 -0700
+Subject: [PATCH 106/223] ANDROID: Clear task dmabuf_info on
+ unshare(CLONE_FILES)
+
+unshare_files is called by exec, but not by the unshare syscall which
+calls unshare_fd directly. If a process calls unshare with CLONE_FILES,
+the kernel fails to clear the task's dmabuf_info despite the new partial
+sharing of dmabuf accounting info (shared MM, unshared files struct)
+which is unsupported. Subsequent reads of /proc/<pid>/dmabuf_rss (and
+friends) for the task that called unshare will return some value when
+they should return nothing.
+
+Fix this by clearing the task's dmabuf_info pointer in ksys_unshare in
+addition to unshare_files. This cannot be done in a single place in
+unshare_fd because later errors could prevent the swap of a task's files
+struct from occurring after unshare_fd is called.
+
+Also move the put_dmabuf_info call outside of the task_lock critical
+section.
+
+Bug: 461520624
+Fixes: 09725f5bd79d ("ANDROID: Don't use current pointer for per-process dmabuf accounting")
+Change-Id: Ibbd92c8974689206985a2ac9e8beeb5b21fa7dce
+Signed-off-by: T.J. Mercier <tjmercier@google.com>
+(cherry picked from commit 2d8e5eb61eae0fc9a486f5710b078c30efd0364f)
+Signed-off-by: Lee Jones <joneslee@google.com>
+---
+ kernel/fork.c | 31 +++++++++++++++++++++++--------
+ 1 file changed, 23 insertions(+), 8 deletions(-)
+
+diff --git a/kernel/fork.c b/kernel/fork.c
+index 39b576a76a7d..6ecc3b330425 100644
+--- a/kernel/fork.c
++++ b/kernel/fork.c
+@@ -3323,6 +3323,7 @@ int ksys_unshare(unsigned long unshare_flags)
+ 	struct files_struct *new_fd = NULL;
+ 	struct cred *new_cred = NULL;
+ 	struct nsproxy *new_nsproxy = NULL;
++	struct task_dma_buf_info *dmabuf_info = NULL;
+ 	int do_sysvsem = 0;
+ 	int err;
+ 
+@@ -3407,10 +3408,22 @@ int ksys_unshare(unsigned long unshare_flags)
+ 			spin_unlock(&fs->lock);
+ 		}
+ 
+-		if (new_fd)
++		if (new_fd) {
+ 			swap(current->files, new_fd);
+ 
++			/*
++			 * This is a new partial sharing relationship for the current task, since we
++			 * have a new files_struct (and the MM might still be shared). Since partial
++			 * sharing is not supported for dmabuf accounting, we need to remove the
++			 * accounting info from the task. Leave the mm->dmabuf_info so any existing
++			 * accounting can be unaccounted properly.
++			 */
++			dmabuf_info = current->dmabuf_info;
++			current->dmabuf_info = NULL;
++		}
++
+ 		task_unlock(current);
++		put_dmabuf_info(dmabuf_info);
+ 
+ 		if (new_cred) {
+ 			/* Install the new user namespace */
+@@ -3451,6 +3464,7 @@ int unshare_files(void)
+ {
+ 	struct task_struct *task = current;
+ 	struct files_struct *old, *copy = NULL;
++	struct task_dma_buf_info *dmabuf_info;
+ 	int error;
+ 
+ 	error = unshare_fd(CLONE_FILES, &copy);
+@@ -3462,16 +3476,17 @@ int unshare_files(void)
+ 	task->files = copy;
+ 
+ 	/*
+-	 * This is a new partial sharing relationship for task, since we have a new
+-	 * files_struct (but the MM is still used). Since partial sharing is not
+-	 * supported for dmabuf accounting, we need to remove the accounting info
+-	 * from the task. Leave the mm->dmabuf_info so any existing accounting can
+-	 * be unaccounted properly. The fixup for this new files_struct happens
+-	 * externally with appropriate locking.
++	 * This is a new partial sharing relationship for the current task, since we have a new
++	 * files_struct (and the MM might still be shared). Since partial sharing is not
++	 * supported for dmabuf accounting, we need to remove the accounting info from the task.
++	 * Leave the mm->dmabuf_info so any existing accounting can be unaccounted properly. For
++	 * execs where we also have a new MM, the fixup for this new files_struct happens externally
++	 * with appropriate locking in dma_buf_begin_new_exec.
+ 	 */
+-	put_dmabuf_info(task->dmabuf_info);
++	dmabuf_info = task->dmabuf_info;
+ 	task->dmabuf_info = NULL;
+ 	task_unlock(task);
++	put_dmabuf_info(dmabuf_info);
+ 	put_files_struct(old);
+ 	return 0;
+ }
+-- 
+2.50.1
+

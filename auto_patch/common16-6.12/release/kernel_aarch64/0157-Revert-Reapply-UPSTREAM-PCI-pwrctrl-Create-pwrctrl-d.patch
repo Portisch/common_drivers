@@ -1,0 +1,47 @@
+From 86dc53cfe87f9a6de6a0d4a7b249fb5ed77d33ca Mon Sep 17 00:00:00 2001
+From: Jaegeuk Kim <jaegeuk@google.com>
+Date: Wed, 20 May 2026 16:24:11 +0000
+Subject: [PATCH 157/223] Revert "Reapply "UPSTREAM: PCI/pwrctrl: Create
+ pwrctrl devices only when CONFIG_PCI_PWRCTRL is enabled""
+
+This reverts commit 44ff504b79e3fdb96eaf013a13e387baeac3be7c.
+
+The patch breaks Pixel.
+
+Bug: 464938478
+Bug: 515084775
+Bug: 515099956
+Change-Id: I46e88f1368280cb9b5fd45168ef077dab66ab94a
+Signed-off-by: Jaegeuk Kim <jaegeuk@google.com>
+---
+ drivers/pci/probe.c | 7 -------
+ 1 file changed, 7 deletions(-)
+
+diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
+index 61d2f12996d3..1b080e4e423f 100644
+--- a/drivers/pci/probe.c
++++ b/drivers/pci/probe.c
+@@ -2455,7 +2455,6 @@ bool pci_bus_read_dev_vendor_id(struct pci_bus *bus, int devfn, u32 *l,
+ }
+ EXPORT_SYMBOL(pci_bus_read_dev_vendor_id);
+ 
+-#if IS_ENABLED(CONFIG_PCI_PWRCTRL)
+ static struct platform_device *pci_pwrctrl_create_device(struct pci_bus *bus, int devfn)
+ {
+ 	struct pci_host_bridge *host = pci_find_host_bridge(bus);
+@@ -2498,12 +2497,6 @@ static struct platform_device *pci_pwrctrl_create_device(struct pci_bus *bus, in
+ 
+ 	return NULL;
+ }
+-#else
+-static struct platform_device *pci_pwrctrl_create_device(struct pci_bus *bus, int devfn)
+-{
+-	return NULL;
+-}
+-#endif
+ 
+ /*
+  * Read the config data for a PCI device, sanity-check it,
+-- 
+2.50.1
+

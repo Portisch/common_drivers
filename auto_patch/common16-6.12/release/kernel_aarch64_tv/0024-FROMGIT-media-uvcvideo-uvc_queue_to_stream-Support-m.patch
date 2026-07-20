@@ -1,7 +1,7 @@
 From b021f925d481e7dda5f1524d0e930bae90fcda6a Mon Sep 17 00:00:00 2001
 From: Ricardo Ribalda <ribalda@chromium.org>
 Date: Mon, 9 Mar 2026 15:01:55 +0000
-Subject: [PATCH 24/63] FROMGIT: media: uvcvideo: uvc_queue_to_stream():
+Subject: [PATCH 024/223] FROMGIT: media: uvcvideo: uvc_queue_to_stream():
  Support meta queues
 
 The stream data structure has two queues: the metadata and the data

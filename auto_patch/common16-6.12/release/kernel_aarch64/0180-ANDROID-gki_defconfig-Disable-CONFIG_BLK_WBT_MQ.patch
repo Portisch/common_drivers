@@ -1,0 +1,55 @@
+From ce7bcc503e4370f1a0b4431c5221b8521b367407 Mon Sep 17 00:00:00 2001
+From: Bart Van Assche <bvanassche@google.com>
+Date: Wed, 13 May 2026 14:13:51 -0700
+Subject: [PATCH 180/223] ANDROID: gki_defconfig: Disable CONFIG_BLK_WBT_MQ
+
+Enabling CONFIG_BLK_WBT_MQ is wrong because it causes write-back
+throttling to be enabled for (a) persistent storage devices that don't
+need it (UFS) and (b) for block drivers that don't need it, e.g. the
+loop driver and device mapper drivers. This CL has been verified by
+running the following command:
+
+$ adb shell 'grep -aH . /sys/block/*/queue/wbt_lat*'
+grep: /sys/block/loop0/queue/wbt_lat_usec: Invalid argument
+grep: /sys/block/loop1/queue/wbt_lat_usec: Invalid argument
+[ ... ]
+
+Bug: 505098085
+Fixes: dca2d08d6319 ("ANDROID: gki_defconfig: enable BLK_WBT")
+Change-Id: Ibf59e049bddc1c4dec15aebb2c2b6200d5091597
+Signed-off-by: Bart Van Assche <bvanassche@google.com>
+Bug: 517670488
+(cherry picked from commit 35e66e207f6edb8e66a448295f5f6ec81162674f)
+Signed-off-by: Bart Van Assche <bvanassche@google.com>
+---
+ arch/arm64/configs/gki_defconfig | 1 +
+ arch/x86/configs/gki_defconfig   | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index 2f0c28ec773f..ea9b72f4ebc7 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -115,6 +115,7 @@ CONFIG_MODULE_SIG=y
+ CONFIG_MODPROBE_PATH="/system/bin/modprobe"
+ CONFIG_BLK_DEV_ZONED=y
+ CONFIG_BLK_WBT=y
++# CONFIG_BLK_WBT_MQ is not set
+ CONFIG_BLK_CGROUP_IOCOST=y
+ CONFIG_BLK_CGROUP_IOPRIO=y
+ CONFIG_BLK_INLINE_ENCRYPTION=y
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index 2e3c6c195be1..9ee4160a71cc 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -102,6 +102,7 @@ CONFIG_MODULE_SIG=y
+ CONFIG_MODPROBE_PATH=""
+ CONFIG_BLK_DEV_ZONED=y
+ CONFIG_BLK_WBT=y
++# CONFIG_BLK_WBT_MQ is not set
+ CONFIG_BLK_CGROUP_IOCOST=y
+ CONFIG_BLK_CGROUP_IOPRIO=y
+ CONFIG_BLK_INLINE_ENCRYPTION=y
+-- 
+2.50.1
+

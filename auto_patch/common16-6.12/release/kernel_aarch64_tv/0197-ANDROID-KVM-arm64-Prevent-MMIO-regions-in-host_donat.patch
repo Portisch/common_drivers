@@ -1,0 +1,36 @@
+From 71091ea1c20a3cf5590c2cd8ce23a1c367a623c6 Mon Sep 17 00:00:00 2001
+From: Vincent Donnefort <vdonnefort@google.com>
+Date: Mon, 9 Mar 2026 18:14:40 +0000
+Subject: [PATCH 197/223] ANDROID: KVM: arm64: Prevent MMIO regions in
+ host_donate_sglist_hyp
+
+The rollback for this module-only function only supports memory.
+Prevent donation of MMIO regions.
+
+Bug: 409860221
+Signed-off-by: Vincent Donnefort <vdonnefort@google.com>
+Cherrypick-From: https://android-review.googlesource.com/q/commit:7ebc34d1807e0b9a7f30c8ba816ebabf342012a1
+Merged-In: I1e1847a91f9d215982330f970509c534310ad67a
+Bug: 520016024
+Change-Id: I1e1847a91f9d215982330f970509c534310ad67a
+Signed-off-by: Chung-Kai (Michael) Mei <chungkai@google.com>
+---
+ arch/arm64/kvm/hyp/nvhe/mem_protect.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/arm64/kvm/hyp/nvhe/mem_protect.c b/arch/arm64/kvm/hyp/nvhe/mem_protect.c
+index 26fc83f04eb0..d696752b67ff 100644
+--- a/arch/arm64/kvm/hyp/nvhe/mem_protect.c
++++ b/arch/arm64/kvm/hyp/nvhe/mem_protect.c
+@@ -2432,7 +2432,7 @@ int __pkvm_host_donate_sglist_hyp(struct pkvm_sglist_page *sglist, size_t nr_pag
+ 		}
+ 
+ 		ret = ___host_check_page_state_range(phys, size, PKVM_PAGE_OWNED,
+-						     HOST_CHECK_NULL_REFCNT);
++						     HOST_CHECK_NULL_REFCNT | HOST_CHECK_IS_MEMORY);
+ 		if (ret)
+ 			goto unlock;
+ 
+-- 
+2.50.1
+

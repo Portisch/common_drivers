@@ -1,0 +1,111 @@
+From b6ac694717bc6c415126c7679e768934a7996b4e Mon Sep 17 00:00:00 2001
+From: Alice Ryhl <aliceryhl@google.com>
+Date: Wed, 6 May 2026 09:57:58 +0000
+Subject: [PATCH 211/223] ANDROID: rust_binder: adjust
+ binder_transaction_alloc_buf
+
+As part of backporting the upstream commit that introduces
+TransactionInfo, we need to get rid of the direct use of the `tr`
+struct, as this struct is no longer being passed to this function. Thus,
+update this tracepoint obtain the information it needs from existing
+local variables in the function, as those local variables are already
+updated accordingly by the TransactionInfo.
+
+This is ANDROID because this tracepoint is currently not upstream. The
+TransactionInfo commit needs to be backported because it's a dependency
+of netlink support.
+
+Bug: 489341806
+Change-Id: Id22e273e57288bc9f37dc4378a0121014fb0ada5
+Signed-off-by: Alice Ryhl <aliceryhl@google.com>
+Bug: 522161277
+---
+ drivers/android/binder/rust_binder_events.h | 10 +++++-----
+ drivers/android/binder/thread.rs            |  2 +-
+ drivers/android/binder/trace.rs             | 12 +++++-------
+ 3 files changed, 11 insertions(+), 13 deletions(-)
+
+diff --git a/drivers/android/binder/rust_binder_events.h b/drivers/android/binder/rust_binder_events.h
+index beccd9f1ad9b..dcd87a49c0cb 100644
+--- a/drivers/android/binder/rust_binder_events.h
++++ b/drivers/android/binder/rust_binder_events.h
+@@ -228,8 +228,8 @@ TRACE_EVENT(binder_transaction_fd_recv,
+ );
+ 
+ TRACE_EVENT(binder_transaction_alloc_buf,
+-	TP_PROTO(int debug_id, const struct binder_transaction_data_sg *data),
+-	TP_ARGS(debug_id, data),
++	TP_PROTO(int debug_id, size_t data_size, size_t offsets_size, size_t extra_buffers_size),
++	TP_ARGS(debug_id, data_size, offsets_size, extra_buffers_size),
+ 
+ 	TP_STRUCT__entry(
+ 		__field(int, debug_id)
+@@ -239,9 +239,9 @@ TRACE_EVENT(binder_transaction_alloc_buf,
+ 	),
+ 	TP_fast_assign(
+ 		__entry->debug_id = debug_id;
+-		__entry->data_size = data->transaction_data.data_size;
+-		__entry->offsets_size = data->transaction_data.offsets_size;
+-		__entry->extra_buffers_size = data->buffers_size;
++		__entry->data_size = data_size;
++		__entry->offsets_size = offsets_size;
++		__entry->extra_buffers_size = extra_buffers_size;
+ 	),
+ 	TP_printk("transaction=%d data_size=%zd offsets_size=%zd extra_buffers_size=%zd",
+ 		  __entry->debug_id, __entry->data_size, __entry->offsets_size,
+diff --git a/drivers/android/binder/thread.rs b/drivers/android/binder/thread.rs
+index 36e2469288eb..6ebd58c9b7b5 100644
+--- a/drivers/android/binder/thread.rs
++++ b/drivers/android/binder/thread.rs
+@@ -1137,7 +1137,7 @@ pub(crate) fn copy_transaction_data(
+             }
+         };
+ 
+-        crate::trace::trace_transaction_alloc_buf(debug_id, tr);
++        crate::trace::trace_transaction_alloc_buf(debug_id, data_size, offsets_size, buffers_size);
+ 
+         let mut buffer_reader = UserSlice::new(info.data_ptr, data_size).reader();
+         let mut end_of_previous_object = 0;
+diff --git a/drivers/android/binder/trace.rs b/drivers/android/binder/trace.rs
+index be3e52d42521..e0b1d9b43755 100644
+--- a/drivers/android/binder/trace.rs
++++ b/drivers/android/binder/trace.rs
+@@ -2,11 +2,10 @@
+ 
+ // Copyright (C) 2024 Google LLC.
+ 
+-use crate::{defs::BinderTransactionDataSg, node::Node, thread::Thread, transaction::Transaction};
++use crate::{node::Node, thread::Thread, transaction::Transaction};
+ 
+ use kernel::bindings::{
+-    binder_transaction_data_sg, flat_binder_object, rust_binder_node, rust_binder_thread,
+-    rust_binder_transaction, task_struct,
++    flat_binder_object, rust_binder_node, rust_binder_thread, rust_binder_transaction, task_struct,
+ };
+ use kernel::error::Result;
+ use kernel::ffi::{c_int, c_uint, c_ulong};
+@@ -32,7 +31,7 @@ unsafe fn binder_transaction_node_send(t_debug_id: c_int, n: rust_binder_node,
+                                                 trans: *const flat_binder_object);
+     unsafe fn binder_transaction_fd_send(t_debug_id: c_int, fd: c_int, offset: usize);
+     unsafe fn binder_transaction_fd_recv(t_debug_id: c_int, fd: c_int, offset: usize);
+-    unsafe fn binder_transaction_alloc_buf(debug_id: c_int, d: *const binder_transaction_data_sg);
++    unsafe fn binder_transaction_alloc_buf(debug_id: c_int, ds: usize, os: usize, bs: usize);
+     unsafe fn binder_transaction_buffer_release(debug_id: c_int);
+     unsafe fn binder_transaction_failed_buffer_release(debug_id: c_int);
+     unsafe fn binder_transaction_update_buffer_release(debug_id: c_int);
+@@ -182,10 +181,9 @@ pub(crate) fn trace_transaction_fd_recv(t_debug_id: usize, fd: u32, offset: usiz
+ }
+ 
+ #[inline]
+-pub(crate) fn trace_transaction_alloc_buf(debug_id: usize, data: &BinderTransactionDataSg) {
+-    let data = data as *const BinderTransactionDataSg;
++pub(crate) fn trace_transaction_alloc_buf(debug_id: usize, ds: usize, os: usize, bs: usize) {
+     // SAFETY: The `data` pointer is valid.
+-    unsafe { binder_transaction_alloc_buf(debug_id as c_int, data.cast()) }
++    unsafe { binder_transaction_alloc_buf(debug_id as c_int, ds, os, bs) }
+ }
+ 
+ #[inline]
+-- 
+2.50.1
+

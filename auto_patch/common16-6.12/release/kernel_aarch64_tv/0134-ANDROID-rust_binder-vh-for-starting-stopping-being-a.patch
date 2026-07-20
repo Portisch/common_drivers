@@ -1,0 +1,171 @@
+From 6843fd463965ff58c56b6f0a273fdac9d97e70ac Mon Sep 17 00:00:00 2001
+From: Alice Ryhl <aliceryhl@google.com>
+Date: Tue, 31 Mar 2026 18:07:51 +0000
+Subject: [PATCH 134/223] ANDROID: rust_binder: vh for starting/stopping being
+ a binder thread
+
+Some vendor hooks keep track of whether a given thread is a binder
+thread. To allow for this, introduce a vendorhook that's called whenever
+a thread starts or stops being a binder thread.
+
+Bug: 486143390
+Change-Id: I5dc71d6d74c6883456e87d5c24fe1fbf2b79eaf9
+Signed-off-by: Alice Ryhl <aliceryhl@google.com>
+Bug: 510699950
+---
+ drivers/android/binder/rust_binder.h       | 10 ++++++
+ drivers/android/binder/rust_binder_hooks.c |  2 ++
+ drivers/android/binder/thread.rs           | 37 ++++++++++++++++++----
+ drivers/android/binder/trace.rs            |  9 ++++++
+ include/trace/hooks/rust_binder.h          |  3 ++
+ 5 files changed, 55 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/android/binder/rust_binder.h b/drivers/android/binder/rust_binder.h
+index a956964c457e..016a7e6a11f0 100644
+--- a/drivers/android/binder/rust_binder.h
++++ b/drivers/android/binder/rust_binder.h
+@@ -169,4 +169,14 @@ static inline binder_uintptr_t rust_binder_node_ptr(rust_binder_node t)
+ 	return * (binder_uintptr_t *) (t + RUST_BINDER_LAYOUT.n.ptr);
+ }
+ 
++/*
++ * Constants for bitflag passed to `android_vh_rust_binder_looper_entry`. A
++ * registered looper is one created after the driver requested its creation
++ * with BR_SPAWN_LOOPER, and an entered looper is one that userspace decided to
++ * create on its own volition.
++ */
++#define LOOPER_REGISTERED 0x01
++#define LOOPER_ENTERED 0x02
++#define LOOPER_EXITED 0x04
++
+ #endif
+diff --git a/drivers/android/binder/rust_binder_hooks.c b/drivers/android/binder/rust_binder_hooks.c
+index 388a4fb7e465..f6247db71150 100644
+--- a/drivers/android/binder/rust_binder_hooks.c
++++ b/drivers/android/binder/rust_binder_hooks.c
+@@ -27,9 +27,11 @@ EXPORT_SYMBOL_GPL(RUST_BINDER_LAYOUT);
+  */
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_rust_binder_set_priority);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_rust_binder_restore_priority);
++EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_rust_binder_looper_entry);
+ 
+ /*
+  * Rust Binder itself calls these methods to trigger the vendor hook.
+  */
+ EXPORT_SYMBOL_GPL(rust_do_trace_android_vh_rust_binder_set_priority);
+ EXPORT_SYMBOL_GPL(rust_do_trace_android_vh_rust_binder_restore_priority);
++EXPORT_SYMBOL_GPL(rust_do_trace_android_vh_rust_binder_looper_entry);
+diff --git a/drivers/android/binder/thread.rs b/drivers/android/binder/thread.rs
+index 2f1e371e37a0..dd8b442b5e8e 100644
+--- a/drivers/android/binder/thread.rs
++++ b/drivers/android/binder/thread.rs
+@@ -282,6 +282,8 @@ struct InnerThread {
+ const LOOPER_WAITING_PROC: u32 = 0x20;
+ const LOOPER_POLL: u32 = 0x40;
+ 
++pub(crate) const LOOPER_VH_MASK: u32 = LOOPER_REGISTERED | LOOPER_ENTERED | LOOPER_EXITED;
++
+ impl InnerThread {
+     fn new() -> Result<Self> {
+         fn next_err_id() -> u32 {
+@@ -1444,6 +1446,27 @@ fn oneway_transaction_inner(self: &Arc<Self>, tr: &BinderTransactionDataSg) -> B
+         }
+     }
+ 
++    fn enter_exit_looper(&self, cmd: u32) {
++        let mut inner;
++        match cmd {
++            BC_REGISTER_LOOPER => {
++                let valid = self.process.register_thread();
++                inner = self.inner.lock();
++                inner.looper_register(valid);
++            }
++            BC_ENTER_LOOPER => {
++                inner = self.inner.lock();
++                inner.looper_enter();
++            }
++            BC_EXIT_LOOPER => {
++                inner = self.inner.lock();
++                inner.looper_exit();
++            }
++            _ => unreachable!(),
++        }
++        crate::trace::vh_looper_entry(self, inner.looper_flags);
++    }
++
+     fn write(self: &Arc<Self>, req: &mut BinderWriteRead) -> Result {
+         let write_start = req.write_buffer.wrapping_add(req.write_consumed);
+         let write_len = req.write_size.saturating_sub(req.write_consumed);
+@@ -1515,12 +1538,9 @@ fn write(self: &Arc<Self>, req: &mut BinderWriteRead) -> Result {
+                 BC_REQUEST_DEATH_NOTIFICATION => self.process.request_death(&mut reader, self)?,
+                 BC_CLEAR_DEATH_NOTIFICATION => self.process.clear_death(&mut reader, self)?,
+                 BC_DEAD_BINDER_DONE => self.process.dead_binder_done(reader.read()?, self),
+-                BC_REGISTER_LOOPER => {
+-                    let valid = self.process.register_thread();
+-                    self.inner.lock().looper_register(valid);
++                BC_REGISTER_LOOPER | BC_ENTER_LOOPER | BC_EXIT_LOOPER => {
++                    self.enter_exit_looper(cmd)
+                 }
+-                BC_ENTER_LOOPER => self.inner.lock().looper_enter(),
+-                BC_EXIT_LOOPER => self.inner.lock().looper_exit(),
+                 BC_REQUEST_FREEZE_NOTIFICATION => self.process.request_freeze_notif(&mut reader)?,
+                 BC_CLEAR_FREEZE_NOTIFICATION => self.process.clear_freeze_notif(&mut reader)?,
+                 BC_FREEZE_NOTIFICATION_DONE => self.process.freeze_notif_done(&mut reader)?,
+@@ -1690,7 +1710,12 @@ pub(crate) fn notify_if_poll_ready(&self, sync: bool) {
+     }
+ 
+     pub(crate) fn release(self: &Arc<Self>) {
+-        self.inner.lock().is_dead = true;
++        {
++            let mut inner = self.inner.lock();
++            inner.is_dead = true;
++            inner.looper_flags |= LOOPER_EXITED;
++            crate::trace::vh_looper_entry(self, inner.looper_flags);
++        }
+ 
+         self.work_condvar.clear();
+         self.unwind_transaction_stack();
+diff --git a/drivers/android/binder/trace.rs b/drivers/android/binder/trace.rs
+index 11b41c6ff0b7..be3e52d42521 100644
+--- a/drivers/android/binder/trace.rs
++++ b/drivers/android/binder/trace.rs
+@@ -22,6 +22,7 @@
+     unsafe fn binder_set_priority(thread: *mut task_struct, desired_prio: c_int, new_prio: c_int);
+     unsafe fn android_vh_rust_binder_set_priority(t: rust_binder_transaction, task: *mut task_struct);
+     unsafe fn android_vh_rust_binder_restore_priority(task: *mut task_struct);
++    unsafe fn android_vh_rust_binder_looper_entry(t: rust_binder_thread, looper_flags: u32);
+     unsafe fn binder_wait_for_work(proc_work: bool, transaction_stack: bool, thread_todo: bool);
+     unsafe fn binder_transaction(reply: bool, t: rust_binder_transaction, thread: *mut task_struct);
+     unsafe fn binder_transaction_received(t: rust_binder_transaction);
+@@ -115,6 +116,14 @@ pub(crate) fn vh_restore_priority(task: &Task) {
+     unsafe { android_vh_rust_binder_restore_priority(task.as_ptr()) }
+ }
+ 
++#[inline]
++pub(crate) fn vh_looper_entry(t: &Thread, looper_flags: u32) {
++    let flags = looper_flags & crate::thread::LOOPER_VH_MASK;
++
++    // SAFETY: The pointer to `task` is valid.
++    unsafe { android_vh_rust_binder_looper_entry(raw_thread(t), flags) }
++}
++
+ #[inline]
+ pub(crate) fn trace_wait_for_work(proc_work: bool, transaction_stack: bool, thread_todo: bool) {
+     // SAFETY: Always safe to call.
+diff --git a/include/trace/hooks/rust_binder.h b/include/trace/hooks/rust_binder.h
+index 4fcf45b94244..64c40e277d78 100644
+--- a/include/trace/hooks/rust_binder.h
++++ b/include/trace/hooks/rust_binder.h
+@@ -28,6 +28,9 @@ DECLARE_HOOK(android_vh_rust_binder_set_priority,
+ DECLARE_HOOK(android_vh_rust_binder_restore_priority,
+ 	TP_PROTO(struct task_struct *task),
+ 	TP_ARGS(task));
++DECLARE_HOOK(android_vh_rust_binder_looper_entry,
++	TP_PROTO(rust_binder_thread thread, unsigned int looper_flags),
++	TP_ARGS(thread, looper_flags));
+ 
+ #endif /* _RUST_BINDER_HOOK_H */
+ 
+-- 
+2.50.1
+

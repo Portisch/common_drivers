@@ -1,0 +1,51 @@
+From 8af76a2961f8eae6d481535f285de9ed8d90f301 Mon Sep 17 00:00:00 2001
+From: Fuad Tabba <tabba@google.com>
+Date: Tue, 31 Mar 2026 08:47:55 +0000
+Subject: [PATCH 092/223] ANDROID: KVM: arm64: Only read host iflags once in
+ flush_hyp_vcpu
+
+In `flush_hyp_vcpu()`, for non-protected VMs, we previously called
+`vcpu_get_flag(host_vcpu, PKVM_HOST_STATE_DIRTY)` which executes a
+`READ_ONCE(host_vcpu->arch.iflags)`. Immediately following this, we
+executed another `READ_ONCE(host_vcpu->arch.iflags)` to copy the
+flags.
+
+This double-read of untrusted host memory creates a theoretical
+Time-Of-Check to Time-Of-Use (TOCTOU) race condition if the host
+concurrently modifies its `iflags`.
+
+Fix this by reading `host_vcpu->arch.iflags` exactly once into a local
+variable, and using that cached value for both the dirty state check
+and the assignment.
+
+Bug: 473214797
+Change-Id: I2bd58bd5a2283ad6cf87934a3f633000076bd111
+Signed-off-by: Fuad Tabba <tabba@google.com>
+(cherry picked from commit 417134a16e5258c6bd2e04fc6d1506b28ccd0e6e)
+Bug: 504744760
+---
+ arch/arm64/kvm/hyp/nvhe/hyp-main.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm64/kvm/hyp/nvhe/hyp-main.c b/arch/arm64/kvm/hyp/nvhe/hyp-main.c
+index 51bd50b7c315..9c7f0fbc3d19 100644
+--- a/arch/arm64/kvm/hyp/nvhe/hyp-main.c
++++ b/arch/arm64/kvm/hyp/nvhe/hyp-main.c
+@@ -803,10 +803,12 @@ static void flush_hyp_vcpu(struct pkvm_hyp_vcpu *hyp_vcpu)
+ 	 * vcpu.
+ 	 */
+ 	if (!pkvm_hyp_vcpu_is_protected(hyp_vcpu)) {
+-		if (vcpu_get_flag(host_vcpu, PKVM_HOST_STATE_DIRTY))
++		u8 host_iflags = READ_ONCE(host_vcpu->arch.iflags);
++
++		if (host_iflags & unpack_vcpu_flag(PKVM_HOST_STATE_DIRTY))
+ 			__flush_hyp_vcpu(hyp_vcpu);
+ 
+-		hyp_vcpu->vcpu.arch.iflags = READ_ONCE(host_vcpu->arch.iflags);
++		hyp_vcpu->vcpu.arch.iflags = host_iflags;
+ 		flush_debug_state(hyp_vcpu);
+ 
+ 		hyp_vcpu->vcpu.arch.hcr_el2 &= ~(HCR_TWI | HCR_TWE);
+-- 
+2.50.1
+

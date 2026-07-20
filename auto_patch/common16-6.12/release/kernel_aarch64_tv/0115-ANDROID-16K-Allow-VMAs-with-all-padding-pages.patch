@@ -1,0 +1,45 @@
+From f790baaa2fd0d4eef6ba1291b18ec76faf44daf0 Mon Sep 17 00:00:00 2001
+From: Kalesh Singh <kaleshsingh@google.com>
+Date: Wed, 22 Apr 2026 10:04:18 -0700
+Subject: [PATCH 115/223] ANDROID: 16K: Allow VMAs with all padding pages.
+
+A VMA can become all padding if the original VMA containing the padding
+is split exactly at the boundary between the vma data and padding pages.
+
+Further splits also produce smaller VMAs of all padding (no data pages).
+
+Adjust the WARN_ON() in vma_pad_pages to only warn if the padding pages
+strictly exceed the number of VMA pages.
+
+Bug: 505115555
+Change-Id: I538d85d77675141df97d14fb67b20b33fa9e2eba
+Signed-off-by: Kalesh Singh <kaleshsingh@google.com>
+(cherry picked from commit 951678e23c05d7e8fc85302dd40319f89d77d275)
+(cherry picked from commit 9505755b3c51ee295436d40eac376c6d3e56baee)
+---
+ mm/pgsize_migration.c | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
+
+diff --git a/mm/pgsize_migration.c b/mm/pgsize_migration.c
+index 379aa7100a98..67e1c7061afa 100644
+--- a/mm/pgsize_migration.c
++++ b/mm/pgsize_migration.c
+@@ -149,8 +149,13 @@ unsigned long vma_pad_pages(struct vm_area_struct *vma)
+ 
+ 	nr_pages = vma_pages(vma);
+ 
+-	/* There must be at least 1 data page in the VMA */
+-	if (WARN_ON(nr_pad >= nr_pages))
++	/*
++	 * The number of padding pages should not exceed the total number of pages in
++	 * the VMA, but can be equal.
++	 *
++	 * See comment in split_pad_vma() for more details.
++	 */
++	if (WARN_ON(nr_pad > nr_pages))
+ 		return 0;
+ 
+ 	return nr_pad;
+-- 
+2.50.1
+

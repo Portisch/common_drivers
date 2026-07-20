@@ -1,0 +1,101 @@
+From 34998bd1fade6d61eeca16482ba16f9385222830 Mon Sep 17 00:00:00 2001
+From: Masha Chizhova <mariachizhova@google.com>
+Date: Tue, 14 Apr 2026 15:52:01 +0000
+Subject: [PATCH 076/223] ANDROID: GKI: Update pixel symbol list
+
+2 function symbol(s) added
+  'void devfreq_get_freq_range(struct devfreq*, unsigned long*, unsigned long*)'
+  'int devfreq_update_target(struct devfreq*, unsigned long)'
+
+Bug: 502163845
+Bug: 503264123
+Change-Id: Ib094c7a9251b43874885e25db586c557b07434e0
+Signed-off-by: Masha Chizhova <mariachizhova@google.com>
+(cherry picked from commit b55f3b7e4de922f3e0ef0d87d949265feba681bc)
+---
+ gki/aarch64/abi.stg       | 27 +++++++++++++++++++++++++++
+ gki/aarch64/symbols/pixel |  2 ++
+ 2 files changed, 29 insertions(+)
+
+diff --git a/gki/aarch64/abi.stg b/gki/aarch64/abi.stg
+index 6e0a291910ae..85b081da11de 100644
+--- a/gki/aarch64/abi.stg
++++ b/gki/aarch64/abi.stg
+@@ -386083,6 +386083,13 @@ function {
+   parameter_id: 0x96c0c5e1
+   parameter_id: 0x96c0c5e1
+ }
++function {
++  id: 0x195a7297
++  return_type_id: 0x48b5725f
++  parameter_id: 0x276a1779
++  parameter_id: 0x064d6086
++  parameter_id: 0x064d6086
++}
+ function {
+   id: 0x195adafa
+   return_type_id: 0xd5cc9c9a
+@@ -466035,6 +466042,15 @@ elf_symbol {
+   type_id: 0xda1e3051
+   full_name: "devfreq_get_devfreq_by_phandle"
+ }
++elf_symbol {
++  id: 0xe846639a
++  name: "devfreq_get_freq_range"
++  is_defined: true
++  symbol_type: FUNCTION
++  crc: 0x2bdd4cb6
++  type_id: 0x195a7297
++  full_name: "devfreq_get_freq_range"
++}
+ elf_symbol {
+   id: 0x4c5f0ec2
+   name: "devfreq_monitor_resume"
+@@ -466152,6 +466168,15 @@ elf_symbol {
+   type_id: 0x9497b363
+   full_name: "devfreq_update_status"
+ }
++elf_symbol {
++  id: 0x6ff644b0
++  name: "devfreq_update_target"
++  is_defined: true
++  symbol_type: FUNCTION
++  crc: 0x4725d0f4
++  type_id: 0x9497b363
++  full_name: "devfreq_update_target"
++}
+ elf_symbol {
+   id: 0x2ad163ea
+   name: "device_add"
+@@ -530255,6 +530280,7 @@ interface {
+   symbol_id: 0xdd8da0cf
+   symbol_id: 0x19e74e36
+   symbol_id: 0xdb9d4783
++  symbol_id: 0xe846639a
+   symbol_id: 0x4c5f0ec2
+   symbol_id: 0xb3e16eb2
+   symbol_id: 0xebc2af57
+@@ -530268,6 +530294,7 @@ interface {
+   symbol_id: 0x799c3ec1
+   symbol_id: 0x34ba5507
+   symbol_id: 0x13972c3d
++  symbol_id: 0x6ff644b0
+   symbol_id: 0x2ad163ea
+   symbol_id: 0x02599b70
+   symbol_id: 0x21c2b40a
+diff --git a/gki/aarch64/symbols/pixel b/gki/aarch64/symbols/pixel
+index 7c46f792e258..4433332961ee 100644
+--- a/gki/aarch64/symbols/pixel
++++ b/gki/aarch64/symbols/pixel
+@@ -368,6 +368,8 @@
+   devfreq_suspend_device
+   devfreq_unregister_opp_notifier
+   devfreq_update_interval
++  devfreq_get_freq_range
++  devfreq_update_target
+   __dev_fwnode
+   __dev_get_by_index
+   dev_get_by_index
+-- 
+2.50.1
+

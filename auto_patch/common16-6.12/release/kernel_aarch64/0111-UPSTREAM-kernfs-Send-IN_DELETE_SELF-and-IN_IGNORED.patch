@@ -1,0 +1,223 @@
+From ed25e03619a903b30b39688f75788d9e94c79572 Mon Sep 17 00:00:00 2001
+From: "T.J. Mercier" <tjmercier@google.com>
+Date: Wed, 25 Feb 2026 14:34:03 -0800
+Subject: [PATCH 111/223] UPSTREAM: kernfs: Send IN_DELETE_SELF and IN_IGNORED
+
+Currently some kernfs files (e.g. cgroup.events, memory.events) support
+inotify watches for IN_MODIFY, but unlike with regular filesystems, they
+do not receive IN_DELETE_SELF or IN_IGNORED events when they are
+removed. This means inotify watches persist after file deletion until
+the process exits and the inotify file descriptor is cleaned up, or
+until inotify_rm_watch is called manually.
+
+This creates a problem for processes monitoring cgroups. For example, a
+service monitoring memory.events for memory.high breaches needs to know
+when a cgroup is removed to clean up its state. Where it's known that a
+cgroup is removed when all processes die, without IN_DELETE_SELF the
+service must resort to inefficient workarounds such as:
+  1) Periodically scanning procfs to detect process death (wastes CPU
+     and is susceptible to PID reuse).
+  2) Holding a pidfd for every monitored cgroup (can exhaust file
+     descriptors).
+
+This patch enables IN_DELETE_SELF and IN_IGNORED events for kernfs files
+and directories by clearing inode i_nlink values during removal. This
+allows VFS to make the necessary fsnotify calls so that userspace
+receives the inotify events.
+
+As a result, applications can rely on a single existing watch on a file
+of interest (e.g. memory.events) to receive notifications for both
+modifications and the eventual removal of the file, as well as automatic
+watch descriptor cleanup, simplifying userspace logic and improving
+efficiency.
+
+There is gap in this implementation for certain file removals due their
+unique nature in kernfs. Directory removals that trigger file removals
+occur through vfs_rmdir, which shrinks the dcache and emits fsnotify
+events after the rmdir operation; there is no issue here. However kernfs
+writes to particular files (e.g. cgroup.subtree_control) can also cause
+file removal, but vfs_write does not attempt to emit fsnotify events
+after the write operation, even if i_nlink counts are 0. As a usecase
+for monitoring this category of file removals is not known, they are
+left without having IN_DELETE or IN_DELETE_SELF events generated.
+Fanotify recursive monitoring also does not work for kernfs nodes that
+do not have inodes attached, as they are created on-demand in kernfs.
+
+Suggested-by: Jan Kara <jack@suse.cz>
+Signed-off-by: T.J. Mercier <tjmercier@google.com>
+Tested-by: syzbot@syzkaller.appspotmail.com
+Acked-by: Tejun Heo <tj@kernel.org>
+Link: https://patch.msgid.link/20260225223404.783173-3-tjmercier@google.com
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit eea5d2bb34ba11dccd9c53f392dc50cf060150a9)
+Bug: 507029684
+Bug: 507463716
+Change-Id: Iaa8d3185a06c94aec4e5fd44d765fc519b50da96
+Signed-off-by: T.J. Mercier <tjmercier@google.com>
+---
+ fs/kernfs/dir.c | 54 +++++++++++++++++++++++++++++++++++++++++++++----
+ 1 file changed, 50 insertions(+), 4 deletions(-)
+
+diff --git a/fs/kernfs/dir.c b/fs/kernfs/dir.c
+index 62c1ac361765..53a9f72cc00f 100644
+--- a/fs/kernfs/dir.c
++++ b/fs/kernfs/dir.c
+@@ -475,7 +475,7 @@ void kernfs_put_active(struct kernfs_node *kn)
+  * removers may invoke this function concurrently on @kn and all will
+  * return after draining is complete.
+  */
+-static void kernfs_drain(struct kernfs_node *kn)
++static void kernfs_drain(struct kernfs_node *kn, bool drop_supers)
+ 	__releases(&kernfs_root(kn)->kernfs_rwsem)
+ 	__acquires(&kernfs_root(kn)->kernfs_rwsem)
+ {
+@@ -495,6 +495,8 @@ static void kernfs_drain(struct kernfs_node *kn)
+ 		return;
+ 
+ 	up_write(&root->kernfs_rwsem);
++	if (drop_supers)
++		up_read(&root->kernfs_supers_rwsem);
+ 
+ 	if (kernfs_lockdep(kn)) {
+ 		rwsem_acquire(&kn->dep_map, 0, 0, _RET_IP_);
+@@ -513,6 +515,8 @@ static void kernfs_drain(struct kernfs_node *kn)
+ 	if (kernfs_should_drain_open_files(kn))
+ 		kernfs_drain_open_files(kn);
+ 
++	if (drop_supers)
++		down_read(&root->kernfs_supers_rwsem);
+ 	down_write(&root->kernfs_rwsem);
+ }
+ 
+@@ -1438,12 +1442,43 @@ void kernfs_show(struct kernfs_node *kn, bool show)
+ 		kn->flags |= KERNFS_HIDDEN;
+ 		if (kernfs_active(kn))
+ 			atomic_add(KN_DEACTIVATED_BIAS, &kn->active);
+-		kernfs_drain(kn);
++		kernfs_drain(kn, false);
+ 	}
+ 
+ 	up_write(&root->kernfs_rwsem);
+ }
+ 
++/*
++ * This function enables VFS to send fsnotify events for deletions.
++ * There is gap in this implementation for certain file removals due their
++ * unique nature in kernfs. Directory removals that trigger file removals occur
++ * through vfs_rmdir, which shrinks the dcache and emits fsnotify events after
++ * the rmdir operation; there is no issue here. However kernfs writes to
++ * particular files (e.g. cgroup.subtree_control) can also cause file removal,
++ * but vfs_write does not attempt to emit fsnotify events after the write
++ * operation, even if i_nlink counts are 0. As a usecase for monitoring this
++ * category of file removals is not known, they are left without having
++ * IN_DELETE or IN_DELETE_SELF events generated.
++ * Fanotify recursive monitoring also does not work for kernfs nodes that do not
++ * have inodes attached, as they are created on-demand in kernfs.
++ */
++static void kernfs_clear_inode_nlink(struct kernfs_node *kn)
++{
++	struct kernfs_root *root = kernfs_root(kn);
++	struct kernfs_super_info *info;
++
++	lockdep_assert_held_read(&root->kernfs_supers_rwsem);
++
++	list_for_each_entry(info, &root->supers, node) {
++		struct inode *inode = ilookup(info->sb, kernfs_ino(kn));
++
++		if (inode) {
++			clear_nlink(inode);
++			iput(inode);
++		}
++	}
++}
++
+ static void __kernfs_remove(struct kernfs_node *kn)
+ {
+ 	struct kernfs_node *pos;
+@@ -1452,6 +1487,7 @@ static void __kernfs_remove(struct kernfs_node *kn)
+ 	if (!kn)
+ 		return;
+ 
++	lockdep_assert_held_read(&kernfs_root(kn)->kernfs_supers_rwsem);
+ 	lockdep_assert_held_write(&kernfs_root(kn)->kernfs_rwsem);
+ 
+ 	/*
+@@ -1485,7 +1521,7 @@ static void __kernfs_remove(struct kernfs_node *kn)
+ 		 */
+ 		kernfs_get(pos);
+ 
+-		kernfs_drain(pos);
++		kernfs_drain(pos, true);
+ 
+ 		/*
+ 		 * kernfs_unlink_sibling() succeeds once per node.  Use it
+@@ -1495,9 +1531,11 @@ static void __kernfs_remove(struct kernfs_node *kn)
+ 			struct kernfs_iattrs *ps_iattr =
+ 				pos->parent ? pos->parent->iattr : NULL;
+ 
+-			/* update timestamps on the parent */
+ 			down_write(&kernfs_root(kn)->kernfs_iattr_rwsem);
+ 
++			kernfs_clear_inode_nlink(pos);
++
++			/* update timestamps on the parent */
+ 			if (ps_iattr) {
+ 				ktime_get_real_ts64(&ps_iattr->ia_ctime);
+ 				ps_iattr->ia_mtime = ps_iattr->ia_ctime;
+@@ -1526,9 +1564,11 @@ void kernfs_remove(struct kernfs_node *kn)
+ 
+ 	root = kernfs_root(kn);
+ 
++	down_read(&root->kernfs_supers_rwsem);
+ 	down_write(&root->kernfs_rwsem);
+ 	__kernfs_remove(kn);
+ 	up_write(&root->kernfs_rwsem);
++	up_read(&root->kernfs_supers_rwsem);
+ }
+ 
+ /**
+@@ -1619,6 +1659,7 @@ bool kernfs_remove_self(struct kernfs_node *kn)
+ 	bool ret;
+ 	struct kernfs_root *root = kernfs_root(kn);
+ 
++	down_read(&root->kernfs_supers_rwsem);
+ 	down_write(&root->kernfs_rwsem);
+ 	kernfs_break_active_protection(kn);
+ 
+@@ -1648,7 +1689,9 @@ bool kernfs_remove_self(struct kernfs_node *kn)
+ 				break;
+ 
+ 			up_write(&root->kernfs_rwsem);
++			up_read(&root->kernfs_supers_rwsem);
+ 			schedule();
++			down_read(&root->kernfs_supers_rwsem);
+ 			down_write(&root->kernfs_rwsem);
+ 		}
+ 		finish_wait(waitq, &wait);
+@@ -1663,6 +1706,7 @@ bool kernfs_remove_self(struct kernfs_node *kn)
+ 	kernfs_unbreak_active_protection(kn);
+ 
+ 	up_write(&root->kernfs_rwsem);
++	up_read(&root->kernfs_supers_rwsem);
+ 	return ret;
+ }
+ 
+@@ -1689,6 +1733,7 @@ int kernfs_remove_by_name_ns(struct kernfs_node *parent, const char *name,
+ 	}
+ 
+ 	root = kernfs_root(parent);
++	down_read(&root->kernfs_supers_rwsem);
+ 	down_write(&root->kernfs_rwsem);
+ 
+ 	kn = kernfs_find_ns(parent, name, ns);
+@@ -1699,6 +1744,7 @@ int kernfs_remove_by_name_ns(struct kernfs_node *parent, const char *name,
+ 	}
+ 
+ 	up_write(&root->kernfs_rwsem);
++	up_read(&root->kernfs_supers_rwsem);
+ 
+ 	if (kn)
+ 		return 0;
+-- 
+2.50.1
+

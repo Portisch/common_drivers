@@ -1,0 +1,166 @@
+From fd433b6b108adc704a8e052eb8c70af61c9ae251 Mon Sep 17 00:00:00 2001
+From: Hu Xile <huxile@oppo.com>
+Date: Tue, 24 Mar 2026 14:57:48 +0800
+Subject: [PATCH 082/223] ANDROID: GKI: Export symbols for lock-boost scheduler
+ hooks Update the list of symbols exported in the patch below:
+ https://android-review.googlesource.com/c/kernel/common/+/4003796 Leaf
+ changes summary: 9 artifacts changed Changed leaf types summary: 1 leaf type
+ changed Removed/Changed/Added functions summary: 0 Removed, 0 Changed,   6
+ Added functions Removed/Changed/Added variables summary: 0 Removed, 0
+ Changed,   3 Added variables Added functions: [A] 'function int
+ __traceiter_android_vh_lock_delay_schedule(void*,  task_struct*, unsigned
+ int, bool*)' [A] 'function int __traceiter_android_vh_lock_task_fork(void*, 
+ task_struct*)' [A] 'function int __traceiter_android_vh_lock_task_exit(void*,
+  task_struct*)' [A] 'function void
+ __trace_android_vh_lock_delay_schedule(void*,  task_struct*, unsigned int,
+ bool*)' [A] 'function void __trace_android_vh_lock_task_fork(void*, 
+ task_struct*)' [A] 'function void __trace_android_vh_lock_task_exit(void*, 
+ task_struct*)' Added variables: [A] 'tracepoint
+ __tracepoint_android_vh_lock_delay_schedule' [A] 'tracepoint
+ __tracepoint_android_vh_lock_task_fork' [A] 'tracepoint
+ __tracepoint_android_vh_lock_task_exit'
+
+Bug: 495270462
+Bug: 503656770
+Change-Id: Icda98c0950f37ec7c4ad6e33cac4eae5d63aa14c
+Signed-off-by: Hu Xile <huxile@oppo.com>
+---
+ gki/aarch64/abi.stg       | 60 +++++++++++++++++++++++++++++++++++++++
+ gki/aarch64/symbols/oplus |  6 ++++
+ 2 files changed, 66 insertions(+)
+
+diff --git a/gki/aarch64/abi.stg b/gki/aarch64/abi.stg
+index 1dfa16926120..0ca2b97ed42f 100644
+--- a/gki/aarch64/abi.stg
++++ b/gki/aarch64/abi.stg
+@@ -443940,6 +443940,15 @@ elf_symbol {
+   type_id: 0x9872969e
+   full_name: "__traceiter_android_vh_kvmalloc_node_use_vmalloc"
+ }
++elf_symbol {
++  id: 0xedae015e
++  name: "__traceiter_android_vh_lock_delay_schedule"
++  is_defined: true
++  symbol_type: FUNCTION
++  crc: 0xbe38553a
++  type_id: 0x9bc253cf
++  full_name: "__traceiter_android_vh_lock_delay_schedule"
++}
+ elf_symbol {
+   id: 0xf56758ea
+   name: "__traceiter_android_vh_lock_folio_drop_mmap_end"
+@@ -443958,6 +443967,24 @@ elf_symbol {
+   type_id: 0x9b94b8e2
+   full_name: "__traceiter_android_vh_lock_folio_drop_mmap_start"
+ }
++elf_symbol {
++  id: 0xc955d513
++  name: "__traceiter_android_vh_lock_task_exit"
++  is_defined: true
++  symbol_type: FUNCTION
++  crc: 0x00f755e7
++  type_id: 0x9bdbdcc4
++  full_name: "__traceiter_android_vh_lock_task_exit"
++}
++elf_symbol {
++  id: 0xfc3decf6
++  name: "__traceiter_android_vh_lock_task_fork"
++  is_defined: true
++  symbol_type: FUNCTION
++  crc: 0x00f755e7
++  type_id: 0x9bdbdcc4
++  full_name: "__traceiter_android_vh_lock_task_fork"
++}
+ elf_symbol {
+   id: 0x66cefe64
+   name: "__traceiter_android_vh_logbuf"
+@@ -451860,6 +451887,15 @@ elf_symbol {
+   type_id: 0x18ccbd2c
+   full_name: "__tracepoint_android_vh_kvmalloc_node_use_vmalloc"
+ }
++elf_symbol {
++  id: 0x247a5590
++  name: "__tracepoint_android_vh_lock_delay_schedule"
++  is_defined: true
++  symbol_type: OBJECT
++  crc: 0x7c5aa8a7
++  type_id: 0x18ccbd2c
++  full_name: "__tracepoint_android_vh_lock_delay_schedule"
++}
+ elf_symbol {
+   id: 0xb1ce9338
+   name: "__tracepoint_android_vh_lock_folio_drop_mmap_end"
+@@ -451878,6 +451914,24 @@ elf_symbol {
+   type_id: 0x18ccbd2c
+   full_name: "__tracepoint_android_vh_lock_folio_drop_mmap_start"
+ }
++elf_symbol {
++  id: 0x911d1d91
++  name: "__tracepoint_android_vh_lock_task_exit"
++  is_defined: true
++  symbol_type: OBJECT
++  crc: 0x7c5aa8a7
++  type_id: 0x18ccbd2c
++  full_name: "__tracepoint_android_vh_lock_task_exit"
++}
++elf_symbol {
++  id: 0x86a7c204
++  name: "__tracepoint_android_vh_lock_task_fork"
++  is_defined: true
++  symbol_type: OBJECT
++  crc: 0x7c5aa8a7
++  type_id: 0x18ccbd2c
++  full_name: "__tracepoint_android_vh_lock_task_fork"
++}
+ elf_symbol {
+   id: 0x39d42312
+   name: "__tracepoint_android_vh_logbuf"
+@@ -527917,8 +527971,11 @@ interface {
+   symbol_id: 0x04e61b81
+   symbol_id: 0x82ed433c
+   symbol_id: 0x0992491b
++  symbol_id: 0xedae015e
+   symbol_id: 0xf56758ea
+   symbol_id: 0x95b7ecea
++  symbol_id: 0xc955d513
++  symbol_id: 0xfc3decf6
+   symbol_id: 0x66cefe64
+   symbol_id: 0x57087e9e
+   symbol_id: 0xe19d2bf8
+@@ -528797,8 +528854,11 @@ interface {
+   symbol_id: 0x918a6f4b
+   symbol_id: 0x989034d6
+   symbol_id: 0x8bd577fd
++  symbol_id: 0x247a5590
+   symbol_id: 0xb1ce9338
+   symbol_id: 0xeb8159ac
++  symbol_id: 0x911d1d91
++  symbol_id: 0x86a7c204
+   symbol_id: 0x39d42312
+   symbol_id: 0x94ddd62c
+   symbol_id: 0xda2d53f2
+diff --git a/gki/aarch64/symbols/oplus b/gki/aarch64/symbols/oplus
+index 14a1c97cd351..926ee460c226 100644
+--- a/gki/aarch64/symbols/oplus
++++ b/gki/aarch64/symbols/oplus
+@@ -643,6 +643,9 @@
+   __traceiter_android_vh_filemap_fault_pre_folio_locked
+   __traceiter_android_vh_filemap_folio_mapped
+   __traceiter_android_vh_folio_remove_rmap_ptes
++  __traceiter_android_vh_lock_delay_schedule
++  __traceiter_android_vh_lock_task_fork
++  __traceiter_android_vh_lock_task_exit
+   __tracepoint_android_vh_lru_gen_add_folio_skip
+   __tracepoint_android_vh_lru_gen_del_folio_skip
+   __tracepoint_android_vh_evict_folios_bypass
+@@ -659,4 +662,7 @@
+   __tracepoint_android_vh_resched_curr_lazy
+   __tracepoint_android_vh_restore_curr_resched
+   __tracepoint_android_vh_clear_curr_lazy
++  __tracepoint_android_vh_lock_delay_schedule
++  __tracepoint_android_vh_lock_task_fork
++  __tracepoint_android_vh_lock_task_exit
+   isolate_folio
+-- 
+2.50.1
+

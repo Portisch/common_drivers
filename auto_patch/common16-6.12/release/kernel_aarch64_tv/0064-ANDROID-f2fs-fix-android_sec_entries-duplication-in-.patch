@@ -1,0 +1,53 @@
+From 5ee64625cf6745ae3ffdaae265058ec2ee3d154a Mon Sep 17 00:00:00 2001
+From: Daeho Jeong <daehojeong@google.com>
+Date: Tue, 7 Apr 2026 10:36:02 -0700
+Subject: [PATCH 064/223] ANDROID: f2fs: fix android_sec_entries duplication in
+ header
+
+The android_sec_entries was defined as a static variable in segment.h,
+which caused each translation unit (.c file) to have its own private copy.
+This led to a NULL pointer dereference (and UBSAN triggers) in translation
+units where the variable was not initialized (like gc.c).
+
+This patch changes it to an extern variable in the header and defines it
+globally in segment.c to ensure a single shared instance.
+
+Bug: 495395382
+Bug: 500811990
+Change-Id: Ia10da2ec36210767a3ec30fc04265407830a19b6
+Signed-off-by: Daeho Jeong <daehojeong@google.com>
+(cherry picked from commit 5332b127bbfa4d100eb1782e11cedfe8592d3535)
+---
+ fs/f2fs/segment.c | 2 ++
+ fs/f2fs/segment.h | 2 +-
+ 2 files changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/fs/f2fs/segment.c b/fs/f2fs/segment.c
+index 4c2c37bf9f2c..05627bb064ed 100644
+--- a/fs/f2fs/segment.c
++++ b/fs/f2fs/segment.c
+@@ -27,6 +27,8 @@
+ 
+ #define __reverse_ffz(x) __reverse_ffs(~(x))
+ 
++struct android_sec_entry *android_sec_entries;
++
+ static struct kmem_cache *discard_entry_slab;
+ static struct kmem_cache *discard_cmd_slab;
+ static struct kmem_cache *sit_entry_set_slab;
+diff --git a/fs/f2fs/segment.h b/fs/f2fs/segment.h
+index 0805cf7427ae..447c383f1490 100644
+--- a/fs/f2fs/segment.h
++++ b/fs/f2fs/segment.h
+@@ -350,7 +350,7 @@ static inline struct sec_entry *get_sec_entry(struct f2fs_sb_info *sbi,
+  *
+  * [1] deecd282bc39 "f2fs: add ckpt_valid_blocks to the section entry" in 6.16+
+  */
+-static struct android_sec_entry *android_sec_entries = NULL;
++extern struct android_sec_entry *android_sec_entries;
+ static inline struct android_sec_entry *android_get_sec_entry(
+ 			struct f2fs_sb_info *sbi, unsigned int segno)
+ {
+-- 
+2.50.1
+

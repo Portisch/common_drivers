@@ -1,7 +1,7 @@
 From e4b4675a34f1e1fc5d50c9720e9a34a7b952d15a Mon Sep 17 00:00:00 2001
 From: Richard Chang <richardycc@google.com>
 Date: Thu, 19 Feb 2026 16:05:06 +0000
-Subject: [PATCH 18/63] ANDROID: zram: cache backing device block index for
+Subject: [PATCH 018/223] ANDROID: zram: cache backing device block index for
  prefetched pages
 
 When a page is prefetched from the backing device, zram currently

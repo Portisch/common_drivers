@@ -1,7 +1,7 @@
 From b48c4992cb8ed2f7bb19d58ca45b8cd851602b10 Mon Sep 17 00:00:00 2001
 From: Alice Ryhl <aliceryhl@google.com>
 Date: Tue, 3 Mar 2026 13:49:50 +0000
-Subject: [PATCH 56/63] ANDROID: rust_binder: reserve space in
+Subject: [PATCH 056/223] ANDROID: rust_binder: reserve space in
  RUST_BINDER_LAYOUT
 
 To avoid exposing layout of internal Rust types to vendor hooks, Rust

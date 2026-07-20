@@ -1,8 +1,8 @@
 From 4f189cc165127721d1b13c28e40005004bf77bba Mon Sep 17 00:00:00 2001
 From: Udipto Goswami <udipto.goswami@oss.qualcomm.com>
 Date: Thu, 19 Mar 2026 01:16:25 +0530
-Subject: [PATCH 39/63] ANDROID: usb: xhci: Expose xhci_handle_event_trb() for
- vendor access
+Subject: [PATCH 039/223] ANDROID: usb: xhci: Expose xhci_handle_event_trb()
+ for vendor access
 
 Vendor handler requires the xhci_handle_event_trb() in order to process
 the individual trbs in event using the event handling logic.

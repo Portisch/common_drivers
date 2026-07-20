@@ -1,0 +1,608 @@
+From 2de9ae95f2a3208f7b5f234440020c06c91125c5 Mon Sep 17 00:00:00 2001
+From: Ting-Hsin Chen <tinghsin@google.com>
+Date: Mon, 1 Jun 2026 17:35:12 +0800
+Subject: [PATCH 222/223] ANDROID: ABI: Update pixel symbol list
+
+Adding the following symbols:
+  - aead_register_instance
+  - ahash_register_instance
+  - cpu_have_feature
+  - crypto_ahash_finup
+  - crypto_ahash_init
+  - crypto_ahash_setkey
+  - crypto_ahash_update
+  - crypto_alg_list
+  - crypto_alg_sem
+  - crypto_alloc_rng
+  - crypto_attr_alg_name
+  - crypto_check_attr_type
+  - crypto_cipher_encrypt_one
+  - crypto_cipher_setkey
+  - crypto_clone_cipher
+  - crypto_clone_shash
+  - crypto_drop_spawn
+  - crypto_get_default_null_skcipher
+  - crypto_grab_aead
+  - crypto_grab_ahash
+  - crypto_grab_shash
+  - crypto_grab_skcipher
+  - crypto_grab_spawn
+  - crypto_inst_setname
+  - crypto_lskcipher_decrypt
+  - crypto_lskcipher_encrypt
+  - crypto_put_default_null_skcipher
+  - crypto_register_aead
+  - crypto_register_aeads
+  - crypto_register_ahash
+  - crypto_register_ahashes
+  - crypto_register_alg
+  - crypto_register_algs
+  - crypto_register_rng
+  - crypto_register_rngs
+  - crypto_register_shash
+  - crypto_register_shashes
+  - crypto_register_skcipher
+  - crypto_register_skciphers
+  - crypto_register_template
+  - crypto_register_templates
+  - crypto_remove_spawns
+  - crypto_rng_reset
+  - crypto_shash_export
+  - crypto_shash_import
+  - crypto_shash_tfm_digest
+  - crypto_spawn_tfm
+  - crypto_spawn_tfm2
+  - crypto_unregister_aeads
+  - crypto_unregister_alg
+  - crypto_unregister_rng
+  - crypto_unregister_rngs
+  - crypto_unregister_shash
+  - crypto_unregister_shashes
+  - crypto_unregister_skciphers
+  - crypto_unregister_template
+  - crypto_unregister_templates
+  - kernel_neon_begin
+  - kernel_neon_end
+  - kvfree_sensitive
+  - lskcipher_alloc_instance_simple
+  - lskcipher_register_instance
+  - pci_print_aer
+  - rng_is_initialized
+  - scatterwalk_ffwd
+  - scatterwalk_map_and_copy
+  - shash_free_singlespawn_instance
+  - shash_no_setkey
+  - shash_register_instance
+  - skcipher_alloc_instance_simple
+  - skcipher_register_instance
+  - skcipher_walk_aead_decrypt
+  - skcipher_walk_aead_encrypt
+  - skcipher_walk_done
+  - skcipher_walk_virt
+  - __traceiter_android_rvh_get_nohz_timer_target
+  - __traceiter_android_rvh_try_alloc_pages_gfp
+  - __traceiter_android_vh_aes_decrypt
+  - __traceiter_android_vh_aes_encrypt
+  - __traceiter_android_vh_aes_expandkey
+  - __traceiter_android_vh_sha256
+  - __traceiter_android_vh_thermal_pm_notify_suspend
+  - __tracepoint_android_rvh_get_nohz_timer_target
+  - __tracepoint_android_rvh_try_alloc_pages_gfp
+  - __tracepoint_android_vh_aes_decrypt
+  - __tracepoint_android_vh_aes_encrypt
+  - __tracepoint_android_vh_aes_expandkey
+  - __tracepoint_android_vh_sha256
+  - __tracepoint_android_vh_thermal_pm_notify_suspend
+  - ufshcd_uic_change_pwr_mode
+
+Bug: 518635189
+Bug: 519494131
+Change-Id: Ife7fe3c4b747d37bc3538d6717b84029c264a485
+Signed-off-by: Ting-Hsin Chen <tinghsin@google.com>
+(cherry picked from commit 40a35714b542c515eaacb216ff2f90c35daa884e)
+Signed-off-by: Giuliano Procida <gprocida@google.com>
+---
+ gki/aarch64/abi.stg       | 128 ++++++++++++++++++++++++++++++++++++++
+ gki/aarch64/symbols/pixel |  90 +++++++++++++++++++++++++++
+ 2 files changed, 218 insertions(+)
+
+diff --git a/gki/aarch64/abi.stg b/gki/aarch64/abi.stg
+index f6824500c08a..bdc2f596b28b 100644
+--- a/gki/aarch64/abi.stg
++++ b/gki/aarch64/abi.stg
+@@ -37583,6 +37583,11 @@ pointer_reference {
+   kind: POINTER
+   pointee_type_id: 0xd6c8573e
+ }
++pointer_reference {
++  id: 0x3f224729
++  kind: POINTER
++  pointee_type_id: 0xd6c9fa39
++}
+ pointer_reference {
+   id: 0x3f22c375
+   kind: POINTER
+@@ -79266,6 +79271,12 @@ member {
+   type_id: 0x6d7f5ff6
+   offset: 960
+ }
++member {
++  id: 0x32fe533d
++  name: "cap_control"
++  type_id: 0xc9082b19
++  offset: 192
++}
+ member {
+   id: 0x1b176051
+   name: "cap_effective"
+@@ -88232,12 +88243,30 @@ member {
+   type_id: 0xc9082b19
+   offset: 128
+ }
++member {
++  id: 0x2b979f97
++  name: "cor_err_source"
++  type_id: 0x914dbfdc
++  offset: 416
++}
+ member {
+   id: 0xca492719
+   name: "cor_error_detected"
+   type_id: 0x0fa845a7
+   offset: 384
+ }
++member {
++  id: 0x9fe8a35c
++  name: "cor_mask"
++  type_id: 0xc9082b19
++  offset: 160
++}
++member {
++  id: 0xfdee1867
++  name: "cor_status"
++  type_id: 0xc9082b19
++  offset: 128
++}
+ member {
+   id: 0x3e7a0099
+   name: "core"
+@@ -106723,6 +106752,11 @@ member {
+   type_id: 0x2a670b41
+   offset: 6848
+ }
++member {
++  id: 0x943c597f
++  name: "dw"
++  type_id: 0xbe0f19dc
++}
+ member {
+   id: 0x94935c8b
+   name: "dw"
+@@ -131067,6 +131101,11 @@ member {
+   name: "header"
+   type_id: 0xfb11ce60
+ }
++member {
++  id: 0xefe5d69a
++  name: "header"
++  type_id: 0xc9082b19
++}
+ member {
+   id: 0x863e4b4b
+   name: "headerBuffer"
+@@ -131108,6 +131147,12 @@ member {
+   type_id: 0x6720d32f
+   offset: 224
+ }
++member {
++  id: 0x13130599
++  name: "header_log"
++  type_id: 0x3dfdf028
++  offset: 224
++}
+ member {
+   id: 0x8e312a79
+   name: "header_ops"
+@@ -215235,6 +215280,12 @@ member {
+   type_id: 0x33756485
+   offset: 448
+ }
++member {
++  id: 0xa19e9fc2
++  name: "root_command"
++  type_id: 0xc9082b19
++  offset: 352
++}
+ member {
+   id: 0x83c4175b
+   name: "root_cset"
+@@ -215307,6 +215358,12 @@ member {
+   type_id: 0x054f691a
+   offset: 128
+ }
++member {
++  id: 0x0a778f9c
++  name: "root_status"
++  type_id: 0xc9082b19
++  offset: 384
++}
+ member {
+   id: 0x3537a868
+   name: "rootid"
+@@ -254476,6 +254533,30 @@ member {
+   type_id: 0xe8034002
+   offset: 944
+ }
++member {
++  id: 0x3da79032
++  name: "uncor_err_source"
++  type_id: 0x914dbfdc
++  offset: 432
++}
++member {
++  id: 0xc9e17525
++  name: "uncor_mask"
++  type_id: 0xc9082b19
++  offset: 64
++}
++member {
++  id: 0x69586a81
++  name: "uncor_severity"
++  type_id: 0xc9082b19
++  offset: 96
++}
++member {
++  id: 0x05ca2251
++  name: "uncor_status"
++  type_id: 0xc9082b19
++  offset: 32
++}
+ member {
+   id: 0x45ce329c
+   name: "uncorrectable_blocks"
+@@ -281770,6 +281851,26 @@ struct_union {
+     member_id: 0x75906b50
+   }
+ }
++struct_union {
++  id: 0xd6c9fa39
++  kind: STRUCT
++  name: "aer_capability_regs"
++  definition {
++    bytesize: 56
++    member_id: 0xefe5d69a
++    member_id: 0x05ca2251
++    member_id: 0xc9e17525
++    member_id: 0x69586a81
++    member_id: 0xfdee1867
++    member_id: 0x9fe8a35c
++    member_id: 0x32fe533d
++    member_id: 0x13130599
++    member_id: 0xa19e9fc2
++    member_id: 0x0a778f9c
++    member_id: 0x2b979f97
++    member_id: 0x3da79032
++  }
++}
+ struct_union {
+   id: 0x6ca1dbb4
+   kind: STRUCT
+@@ -333779,6 +333880,15 @@ struct_union {
+   kind: STRUCT
+   name: "pcie_link_state"
+ }
++struct_union {
++  id: 0x3dfdf028
++  kind: STRUCT
++  name: "pcie_tlp_log"
++  definition {
++    bytesize: 16
++    member_id: 0x943c597f
++  }
++}
+ struct_union {
+   id: 0xc5968b0c
+   kind: STRUCT
+@@ -389554,6 +389664,13 @@ function {
+   parameter_id: 0x12209d55
+   parameter_id: 0x33756485
+ }
++function {
++  id: 0x1572bbdd
++  return_type_id: 0x48b5725f
++  parameter_id: 0x11e6864c
++  parameter_id: 0x6720d32f
++  parameter_id: 0x3f224729
++}
+ function {
+   id: 0x1572d585
+   return_type_id: 0xd5cc9c9a
+@@ -504230,6 +504347,16 @@ elf_symbol {
+   type_id: 0x99f942bc
+   full_name: "pci_prepare_to_sleep"
+ }
++elf_symbol {
++  id: 0x98ca554e
++  name: "pci_print_aer"
++  is_defined: true
++  symbol_type: FUNCTION
++  crc: 0x17317f52
++  namespace: "CXL"
++  type_id: 0x1572bbdd
++  full_name: "pci_print_aer"
++}
+ elf_symbol {
+   id: 0x162de729
+   name: "pci_read_config_byte"
+@@ -540991,6 +541118,7 @@ interface {
+   symbol_id: 0xf32782d8
+   symbol_id: 0x258080ab
+   symbol_id: 0x4d0b5a53
++  symbol_id: 0x98ca554e
+   symbol_id: 0x162de729
+   symbol_id: 0x5983afac
+   symbol_id: 0x8c3e2fab
+diff --git a/gki/aarch64/symbols/pixel b/gki/aarch64/symbols/pixel
+index be7f4a6aeb76..2cc52e8d463b 100644
+--- a/gki/aarch64/symbols/pixel
++++ b/gki/aarch64/symbols/pixel
+@@ -7,8 +7,10 @@
+   add_uevent_var
+   add_wait_queue
+   adjust_managed_page_count
++  aead_register_instance
+   aes_encrypt
+   aes_expandkey
++  ahash_register_instance
+   alarm_cancel
+   alarm_init
+   alarm_start_relative
+@@ -248,6 +250,7 @@
+   cpufreq_unregister_driver
+   cpufreq_update_limits
+   cpufreq_update_util_data
++  cpu_have_feature
+   cpu_hotplug_disable
+   cpu_hotplug_enable
+   __cpuhp_remove_state
+@@ -281,21 +284,75 @@
+   crypto_aead_encrypt
+   crypto_aead_setauthsize
+   crypto_aead_setkey
++  crypto_ahash_finup
++  crypto_ahash_init
++  crypto_ahash_setkey
++  crypto_ahash_update
++  crypto_alg_list
++  crypto_alg_sem
+   crypto_alloc_aead
++  crypto_alloc_rng
+   crypto_alloc_shash
+   crypto_alloc_skcipher
+   crypto_alloc_sync_skcipher
++  crypto_attr_alg_name
++  crypto_check_attr_type
++  crypto_cipher_encrypt_one
++  crypto_cipher_setkey
++  crypto_clone_cipher
++  crypto_clone_shash
+   crypto_destroy_tfm
++  crypto_drop_spawn
++  crypto_get_default_null_skcipher
++  crypto_grab_aead
++  crypto_grab_ahash
++  crypto_grab_shash
++  crypto_grab_skcipher
++  crypto_grab_spawn
++  crypto_inst_setname
++  crypto_lskcipher_decrypt
++  crypto_lskcipher_encrypt
+   __crypto_memneq
++  crypto_put_default_null_skcipher
++  crypto_register_aead
++  crypto_register_aeads
++  crypto_register_ahash
++  crypto_register_ahashes
++  crypto_register_alg
++  crypto_register_algs
++  crypto_register_rng
++  crypto_register_rngs
++  crypto_register_shash
++  crypto_register_shashes
++  crypto_register_skcipher
++  crypto_register_skciphers
++  crypto_register_template
++  crypto_register_templates
++  crypto_remove_spawns
+   crypto_req_done
++  crypto_rng_reset
+   crypto_shash_digest
++  crypto_shash_export
+   crypto_shash_final
+   crypto_shash_finup
++  crypto_shash_import
+   crypto_shash_setkey
++  crypto_shash_tfm_digest
+   crypto_shash_update
+   crypto_skcipher_decrypt
+   crypto_skcipher_encrypt
+   crypto_skcipher_setkey
++  crypto_spawn_tfm
++  crypto_spawn_tfm2
++  crypto_unregister_aeads
++  crypto_unregister_alg
++  crypto_unregister_rng
++  crypto_unregister_rngs
++  crypto_unregister_shash
++  crypto_unregister_shashes
++  crypto_unregister_skciphers
++  crypto_unregister_template
++  crypto_unregister_templates
+   __crypto_xor
+   css_task_iter_end
+   css_task_iter_next
+@@ -1437,6 +1494,8 @@
+   kernel_cpustat
+   kernel_getsockname
+   kernel_kobj
++  kernel_neon_begin
++  kernel_neon_end
+   kernel_param_lock
+   kernel_param_unlock
+   kernel_recvmsg
+@@ -1566,6 +1625,7 @@
+   kunit_running
+   kvfree
+   kvfree_call_rcu
++  kvfree_sensitive
+   __kvmalloc_node_noprof
+   kvm_iommu_alloc_domain
+   kvm_iommu_attach_dev
+@@ -1604,6 +1664,8 @@
+   lru_cache_disable
+   lru_disable_count
+   __lruvec_stat_mod_folio
++  lskcipher_alloc_instance_simple
++  lskcipher_register_instance
+   LZ4_compress_fast
+   LZ4_compress_fast_continue
+   LZ4_compress_HC
+@@ -1958,6 +2020,7 @@
+   pci_msi_mask_irq
+   pci_msi_unmask_irq
+   pci_prepare_ats
++  pci_print_aer
+   pci_read_config_dword
+   pci_read_config_word
+   __pci_register_driver
+@@ -2328,6 +2391,7 @@
+   __rht_bucket_nested
+   rht_bucket_nested
+   rht_bucket_nested_insert
++  rng_is_initialized
+   root_task_group
+   round_jiffies
+   round_jiffies_relative
+@@ -2352,6 +2416,8 @@
+   runqueues
+   RUST_BINDER_LAYOUT
+   sbitmap_weight
++  scatterwalk_ffwd
++  scatterwalk_map_and_copy
+   sched_clock
+   sched_energy_present
+   sched_feat_keys
+@@ -2418,6 +2484,9 @@
+   sg_next
+   __sg_page_iter_next
+   __sg_page_iter_start
++  shash_free_singlespawn_instance
++  shash_no_setkey
++  shash_register_instance
+   shmem_file_setup
+   __show_mem
+   shrinker_alloc
+@@ -2471,6 +2540,12 @@
+   skb_store_bits
+   skb_trim
+   skb_unlink
++  skcipher_alloc_instance_simple
++  skcipher_register_instance
++  skcipher_walk_aead_decrypt
++  skcipher_walk_aead_encrypt
++  skcipher_walk_done
++  skcipher_walk_virt
+   sk_free
+   skip_spaces
+   sk_skb_reason_drop
+@@ -2771,6 +2846,7 @@
+   __traceiter_android_rvh_enqueue_task
+   __traceiter_android_rvh_enqueue_task_fair
+   __traceiter_android_rvh_find_lowest_rq
++  __traceiter_android_rvh_get_nohz_timer_target
+   __traceiter_android_rvh_gup_longterm_locked
+   __traceiter_android_rvh_hw_protection_shutdown
+   __traceiter_android_rvh_iommu_alloc_insert_iova
+@@ -2804,6 +2880,7 @@
+   __traceiter_android_rvh_set_user_nice_locked
+   __traceiter_android_rvh_swap_read_folio_bdev_sync
+   __traceiter_android_rvh_task_fits_cpu
++  __traceiter_android_rvh_try_alloc_pages_gfp
+   __traceiter_android_rvh_try_to_wake_up_success
+   __traceiter_android_rvh_uclamp_eff_get
+   __traceiter_android_rvh_ufs_complete_init
+@@ -2818,6 +2895,9 @@
+   __traceiter_android_rvh_vmscan_kswapd_wake
+   __traceiter_android_trigger_vendor_lmk_kill
+   __traceiter_android_vh_adjust_kvmalloc_flags
++  __traceiter_android_vh_aes_decrypt
++  __traceiter_android_vh_aes_encrypt
++  __traceiter_android_vh_aes_expandkey
+   __traceiter_android_vh_arch_set_freq_scale
+   __traceiter_android_vh_binder_proc_transaction_finish
+   __traceiter_android_vh_binder_restore_priority
+@@ -2864,11 +2944,13 @@
+   __traceiter_android_vh_rust_binder_set_priority
+   __traceiter_android_vh_scheduler_tick
+   __traceiter_android_vh_setscheduler_uclamp
++  __traceiter_android_vh_sha256
+   __traceiter_android_vh_show_smap
+   __traceiter_android_vh_si_meminfo_adjust
+   __traceiter_android_vh_smaps_pte_entry
+   __traceiter_android_vh_swap_writepage
+   __traceiter_android_vh_sysrq_crash
++  __traceiter_android_vh_thermal_pm_notify_suspend
+   __traceiter_android_vh_timerfd_create
+   __traceiter_android_vh_tune_swappiness
+   __traceiter_android_vh_typec_tcpm_log
+@@ -2934,6 +3016,7 @@
+   __tracepoint_android_rvh_enqueue_task
+   __tracepoint_android_rvh_enqueue_task_fair
+   __tracepoint_android_rvh_find_lowest_rq
++  __tracepoint_android_rvh_get_nohz_timer_target
+   __tracepoint_android_rvh_gup_longterm_locked
+   __tracepoint_android_rvh_hw_protection_shutdown
+   __tracepoint_android_rvh_iommu_alloc_insert_iova
+@@ -2967,6 +3050,7 @@
+   __tracepoint_android_rvh_set_user_nice_locked
+   __tracepoint_android_rvh_swap_read_folio_bdev_sync
+   __tracepoint_android_rvh_task_fits_cpu
++  __tracepoint_android_rvh_try_alloc_pages_gfp
+   __tracepoint_android_rvh_try_to_wake_up_success
+   __tracepoint_android_rvh_uclamp_eff_get
+   __tracepoint_android_rvh_ufs_complete_init
+@@ -2981,6 +3065,9 @@
+   __tracepoint_android_rvh_vmscan_kswapd_wake
+   __tracepoint_android_trigger_vendor_lmk_kill
+   __tracepoint_android_vh_adjust_kvmalloc_flags
++  __tracepoint_android_vh_aes_decrypt
++  __tracepoint_android_vh_aes_encrypt
++  __tracepoint_android_vh_aes_expandkey
+   __tracepoint_android_vh_arch_set_freq_scale
+   __tracepoint_android_vh_binder_proc_transaction_finish
+   __tracepoint_android_vh_binder_restore_priority
+@@ -3027,11 +3114,13 @@
+   __tracepoint_android_vh_rust_binder_set_priority
+   __tracepoint_android_vh_scheduler_tick
+   __tracepoint_android_vh_setscheduler_uclamp
++  __tracepoint_android_vh_sha256
+   __tracepoint_android_vh_show_smap
+   __tracepoint_android_vh_si_meminfo_adjust
+   __tracepoint_android_vh_smaps_pte_entry
+   __tracepoint_android_vh_swap_writepage
+   __tracepoint_android_vh_sysrq_crash
++  __tracepoint_android_vh_thermal_pm_notify_suspend
+   __tracepoint_android_vh_timerfd_create
+   __tracepoint_android_vh_tune_swappiness
+   __tracepoint_android_vh_typec_tcpm_log
+@@ -3160,6 +3249,7 @@
+   ufshcd_suspend_prepare
+   ufshcd_system_resume
+   ufshcd_system_suspend
++  ufshcd_uic_change_pwr_mode
+   unlock_page
+   unmap_mapping_range
+   unpin_user_page
+-- 
+2.50.1
+

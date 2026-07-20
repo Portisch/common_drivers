@@ -1,8 +1,8 @@
 From 9633e1f07c81b767bc2652afa8a1fcbef4c44086 Mon Sep 17 00:00:00 2001
 From: Daeho Jeong <daehojeong@google.com>
 Date: Thu, 29 May 2025 15:25:32 -0700
-Subject: [PATCH 29/63] UPSTREAM: f2fs: make sure zoned device GC to use FG_GC
- in shortage of free section
+Subject: [PATCH 029/223] UPSTREAM: f2fs: make sure zoned device GC to use
+ FG_GC in shortage of free section
 
 We already use FG_GC when we have free sections under
 gc_boost_zoned_gc_percent. So, let's make it consistent.

@@ -1,0 +1,130 @@
+From 4645b69bd581f96a3847d6143c81a88a30098aea Mon Sep 17 00:00:00 2001
+From: Mostafa Saleh <smostafa@google.com>
+Date: Thu, 16 Apr 2026 17:02:44 +0000
+Subject: [PATCH 140/223] ANDROID: KVM: arm64: pviommu: Fix pinning for
+ map_pages()
+
+Using the granule size of pinning is not correct as the address doesn't
+have to be block aligned.
+
+Fix that by subtracting the block offset.
+
+Also, harden the __smccc_prot_linux() conversion to reject unknown
+flags.
+
+Bug: 503384798
+Change-Id: Idb011fbef140f72572f7a26efa8448ad6323cf7a
+Signed-off-by: Mostafa Saleh <smostafa@google.com>
+(cherry picked from commit 329d7c6e7215f52bb5922b4bcaa6bf713fa4ccff)
+Signed-off-by: Lee Jones <joneslee@google.com>
+---
+ arch/arm64/kvm/hyp/nvhe/iommu/pviommu.c | 29 ++++++++++++++++++++-----
+ arch/arm64/kvm/hyp/nvhe/mem_protect.c   | 15 +++++++++----
+ 2 files changed, 35 insertions(+), 9 deletions(-)
+
+diff --git a/arch/arm64/kvm/hyp/nvhe/iommu/pviommu.c b/arch/arm64/kvm/hyp/nvhe/iommu/pviommu.c
+index 8358e6defac7..4f01b201b071 100644
+--- a/arch/arm64/kvm/hyp/nvhe/iommu/pviommu.c
++++ b/arch/arm64/kvm/hyp/nvhe/iommu/pviommu.c
+@@ -231,10 +231,21 @@ static bool pkvm_guest_iommu_free_domain(struct pkvm_hyp_vcpu *hyp_vcpu)
+ 	return true;
+ }
+ 
++#define PVIOMMU_PROT_ALLOW (ARM_SMCCC_KVM_PVIOMMU_READ | \
++			    ARM_SMCCC_KVM_PVIOMMU_WRITE | \
++			    ARM_SMCCC_KVM_PVIOMMU_CACHE | \
++			    ARM_SMCCC_KVM_PVIOMMU_NOEXEC | \
++			    ARM_SMCCC_KVM_PVIOMMU_MMIO | \
++			    ARM_SMCCC_KVM_PVIOMMU_PRIV)
++
++/* Return positive prot or negative error code*/
+ static int __smccc_prot_linux(u64 prot)
+ {
+ 	int iommu_prot = 0;
+ 
++	if (prot & ~PVIOMMU_PROT_ALLOW)
++		return -EINVAL;
++
+ 	if (prot & ARM_SMCCC_KVM_PVIOMMU_READ)
+ 		iommu_prot |= IOMMU_READ;
+ 	if (prot & ARM_SMCCC_KVM_PVIOMMU_WRITE)
+@@ -261,18 +272,24 @@ static bool pkvm_guest_iommu_map(struct pkvm_hyp_vcpu *hyp_vcpu, u64 *exit_code)
+ 	u64 size = smccc_get_arg5(vcpu);
+ 	u64 prot = smccc_get_arg6(vcpu);
+ 	u64 paddr;
+-	int ret;
++	int ret, iommu_prot;
+ 	s8 level;
+ 	u64 smccc_ret = SMCCC_RET_SUCCESS;
+ 
++	iommu_prot = __smccc_prot_linux(prot);
++
+ 	if (!IS_ALIGNED(size, PAGE_SIZE) ||
+ 	    !IS_ALIGNED(ipa, PAGE_SIZE) ||
+-	    !IS_ALIGNED(iova, PAGE_SIZE)) {
++	    !IS_ALIGNED(iova, PAGE_SIZE) ||
++		iommu_prot < 0) {
+ 		smccc_set_retval(vcpu, SMCCC_RET_INVALID_PARAMETER, 0, 0, 0);
+ 		return true;
+ 	}
+ 
+ 	while (size) {
++		size_t off;
++		size_t pinned_size;
++
+ 		/*
+ 		 * We need to get the PA and atomically use the page temporarily to avoid
+ 		 * racing with relinquish.
+@@ -290,10 +307,12 @@ static bool pkvm_guest_iommu_map(struct pkvm_hyp_vcpu *hyp_vcpu, u64 *exit_code)
+ 			break;
+ 		}
+ 
++		off = paddr - ALIGN_DOWN(paddr, kvm_granule_size(level));
++		pinned_size = min(size, kvm_granule_size(level) - off);
+ 		kvm_iommu_map_pages(domain, iova, paddr,
+-				    PAGE_SIZE, min(size, kvm_granule_size(level)) / PAGE_SIZE,
+-				    __smccc_prot_linux(prot), &mapped);
+-		WARN_ON(__pkvm_unuse_dma(paddr, kvm_granule_size(level), hyp_vcpu));
++				    PAGE_SIZE, pinned_size / PAGE_SIZE,
++				    iommu_prot, &mapped);
++		WARN_ON(__pkvm_unuse_dma(paddr, pinned_size, hyp_vcpu));
+ 		if (!mapped) {
+ 			if (!__need_req(vcpu)) {
+ 				smccc_ret = SMCCC_RET_INVALID_PARAMETER;
+diff --git a/arch/arm64/kvm/hyp/nvhe/mem_protect.c b/arch/arm64/kvm/hyp/nvhe/mem_protect.c
+index 62647fc1029b..26fc83f04eb0 100644
+--- a/arch/arm64/kvm/hyp/nvhe/mem_protect.c
++++ b/arch/arm64/kvm/hyp/nvhe/mem_protect.c
+@@ -2937,18 +2937,25 @@ int pkvm_get_guest_pa_request(struct pkvm_hyp_vcpu *hyp_vcpu, u64 ipa,
+ 	return 0;
+ }
+ 
+-/* Get a PA and use the page for DMA */
++/*
++ * Get a PA of an IPA and pin the memory starting from this PA till
++ *  the requested ipa_size or the end of the page boundary returned in level.
++ */
+ int pkvm_get_guest_pa_request_use_dma(struct pkvm_hyp_vcpu *hyp_vcpu, u64 ipa,
+-				      size_t ipa_size_request, u64 *out_pa, s8 *level)
++				      size_t ipa_size, u64 *out_pa, s8 *level)
+ {
+ 	int ret;
++	size_t off;
+ 
+ 	host_lock_component();
+-	ret = pkvm_get_guest_pa_request(hyp_vcpu, ipa, ipa_size_request,
++	ret = pkvm_get_guest_pa_request(hyp_vcpu, ipa, ipa_size,
+ 					out_pa, level);
+ 	if (ret)
+ 		goto out_ret;
+-	WARN_ON(__pkvm_use_dma_locked(*out_pa, kvm_granule_size(*level), hyp_vcpu));
++	off = *out_pa - ALIGN_DOWN(*out_pa, kvm_granule_size(*level));
++	WARN_ON(__pkvm_use_dma_locked(*out_pa,
++				      min(kvm_granule_size(*level) - off, ipa_size),
++				      hyp_vcpu));
+ out_ret:
+ 	host_unlock_component();
+ 	return ret;
+-- 
+2.50.1
+

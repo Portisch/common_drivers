@@ -1,0 +1,46 @@
+From 178a8230b91b15f08b2fa95bc471702de1e05e9d Mon Sep 17 00:00:00 2001
+From: Mostafa Saleh <smostafa@google.com>
+Date: Thu, 16 Apr 2026 11:51:27 +0000
+Subject: [PATCH 126/223] ANDROID: iommu/arm-smmu-v3-kvm: Lock pgtable in
+ smmu_iotlb_sync()
+
+In pKVM all page table operation has to be locked.
+However, smmu_iotlb_sync() has no locks where it can be called from
+kvm_iommu_unmap_pages() without any locks taken or it can be
+called from kvm_iommu_iotlb_gather_add_page() where the lock is taken.
+
+So, drain the gather list at the end of kvm_iommu_unmap_pages() with
+the lock taken, so when called next from kvm_iommu_unmap_pages(), it
+will be empty.
+
+Bug: 503378316
+Change-Id: Id38b7b145152bbd49f124ee2637139dd7393d4e3
+Signed-off-by: Mostafa Saleh <smostafa@google.com>
+(cherry picked from commit 2f86c81dc9453ed385c4f0703d6bd664d0997567)
+Signed-off-by: Lee Jones <joneslee@google.com>
+---
+ drivers/iommu/arm/arm-smmu-v3/pkvm/arm-smmu-v3.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/drivers/iommu/arm/arm-smmu-v3/pkvm/arm-smmu-v3.c b/drivers/iommu/arm/arm-smmu-v3/pkvm/arm-smmu-v3.c
+index fb08decd7784..28b41e5835c7 100644
+--- a/drivers/iommu/arm/arm-smmu-v3/pkvm/arm-smmu-v3.c
++++ b/drivers/iommu/arm/arm-smmu-v3/pkvm/arm-smmu-v3.c
+@@ -1543,6 +1543,14 @@ static size_t smmu_unmap_pages(struct kvm_hyp_iommu_domain *domain, unsigned lon
+ 		total_unmapped += unmapped;
+ 		pgcount -= unmapped / pgsize;
+ 	}
++
++	/*
++	 * Eagerly drain the gather list before the core code does to Keep
++	 * the page table walk locked.
++	 */
++	smmu_iotlb_sync(domain, gather);
++	gather->pgsize = 0;
++	iommu_iotlb_gather_init(gather);
+ 	hyp_spin_unlock(&smmu_domain->pgt_lock);
+ 	return total_unmapped;
+ }
+-- 
+2.50.1
+

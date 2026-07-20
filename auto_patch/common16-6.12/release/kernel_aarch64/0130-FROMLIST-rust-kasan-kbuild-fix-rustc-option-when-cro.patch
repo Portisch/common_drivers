@@ -1,0 +1,104 @@
+From f1784d01a700828d7a573895a16cf2de199f18d8 Mon Sep 17 00:00:00 2001
+From: Alice Ryhl <aliceryhl@google.com>
+Date: Mon, 4 May 2026 12:57:37 +0000
+Subject: [PATCH 130/223] FROMLIST: rust: kasan/kbuild: fix rustc-option when
+ cross-compiling
+
+The Makefile version of rustc-option currently checks whether the option
+exists for the host target instead of the target actually being compiled
+for. It was done this way in commit 46e24a545cdb ("rust: kasan/kbuild:
+fix missing flags on first build") to avoid a circular dependency on
+target.json. However, because of this, rustc-option currently does not
+function when cross-compiling from x86_64 to aarch64 if
+CONFIG_SHADOW_CALL_STACK is enabled. This is because KBUILD_RUSTFLAGS
+contains -Zfixed-x18 under this configuration. Since that flag does not
+exist on the host target, rustc-option runs into a compilation failure
+every time, leading to all flags being rejected as unsupported.
+
+To fix this, update rustc-option to pass a --target parameter so that
+the host target is not used. For targets using target.json, use a
+built-in target that is as close as possible to the target created with
+target.json to avoid the circular dependency on target.json.
+
+One scenario where this causes a boot failure:
+* Cross-compiled from x86_64 to aarch64.
+* With CONFIG_SHADOW_CALL_STACK=y
+* With CONFIG_KASAN_SW_TAGS=y
+* With CONFIG_KASAN_INLINE=n
+Then the resulting kernel image will fail to boot when it first calls
+into Rust code with a crash along the lines of "Unable to handle kernel
+paging request at virtual address 0ffffffc08541796". This is because the
+call threshold is not specified, so rustc will inline kasan operations,
+but the kasan shadow offset is not specified, which leads to the inlined
+kasan instructions being incorrect.
+
+The above scenario actually also fails without -Zfixed-x18 since the
+SW_TAGS sanitizer itself is aarch64-specific. But it's a problem with
+normal KASAN too because of -Zfixed-x18.
+
+Cc: stable@vger.kernel.org
+Fixes: 46e24a545cdb ("rust: kasan/kbuild: fix missing flags on first build")
+Signed-off-by: Alice Ryhl <aliceryhl@google.com>
+
+Bug: 502841452
+Bug: 510369449
+Change-Id: Ia73328873de15e3b5b0e38c48e97bf81ca96cd6d
+Link: https://lore.kernel.org/r/20260504-rustc-option-cross-v1-1-09f2726b680f@google.com
+Signed-off-by: Alice Ryhl <aliceryhl@google.com>
+(cherry picked from commit f0eb259b5af5bdc7fc7237edf1636cd7f9b85549)
+---
+ arch/x86/Makefile         | 4 ++++
+ arch/x86/Makefile.um      | 8 ++++++++
+ scripts/Makefile.compiler | 2 +-
+ 3 files changed, 13 insertions(+), 1 deletion(-)
+
+diff --git a/arch/x86/Makefile b/arch/x86/Makefile
+index d30c9d905e7a..d4ee27b8f847 100644
+--- a/arch/x86/Makefile
++++ b/arch/x86/Makefile
+@@ -78,6 +78,10 @@ KBUILD_CFLAGS += -mno-sse -mno-mmx -mno-sse2 -mno-3dnow -mno-avx
+ KBUILD_RUSTFLAGS += --target=$(objtree)/scripts/target.json
+ KBUILD_RUSTFLAGS += -Ctarget-feature=-sse,-sse2,-sse3,-ssse3,-sse4.1,-sse4.2,-avx,-avx2
+ 
++# The target.json file is not available when invoking rustc-option, so use the
++# built-in target when checking whether flags are supported instead.
++KBUILD_RUSTFLAGS_OPTION_CHKS += --target=x86_64-unknown-none
++
+ #
+ # CFLAGS for compiling floating point code inside the kernel.
+ #
+diff --git a/arch/x86/Makefile.um b/arch/x86/Makefile.um
+index c86cbd9cbba3..2e21fb3096a4 100644
+--- a/arch/x86/Makefile.um
++++ b/arch/x86/Makefile.um
+@@ -14,6 +14,14 @@ endif
+ 
+ KBUILD_RUSTFLAGS += --target=$(objtree)/scripts/target.json
+ 
++# The target.json file is not available when invoking rustc-option, so use the
++# built-in target when checking whether flags are supported instead.
++ifeq ($(CONFIG_X86_32),y)
++KBUILD_RUSTFLAGS_OPTION_CHKS += --target=i686-unknown-linux-gnu
++else
++KBUILD_RUSTFLAGS_OPTION_CHKS += --target=x86_64-unknown-linux-gnu
++endif
++
+ ifeq ($(CONFIG_X86_32),y)
+ START := 0x8048000
+ 
+diff --git a/scripts/Makefile.compiler b/scripts/Makefile.compiler
+index 638e1e729986..75376b35c469 100644
+--- a/scripts/Makefile.compiler
++++ b/scripts/Makefile.compiler
+@@ -80,7 +80,7 @@ ld-option = $(call try-run, $(LD) $(KBUILD_LDFLAGS) $(1) -v,$(1),$(2),$(3))
+ # TODO: remove RUSTC_BOOTSTRAP=1 when we raise the minimum GNU Make version to 4.4
+ __rustc-option = $(call try-run,\
+ 	echo '$(pound)![allow(missing_docs)]$(pound)![feature(no_core)]$(pound)![no_core]' | RUSTC_BOOTSTRAP=1\
+-	$(1) --sysroot=/dev/null $(filter-out --sysroot=/dev/null --target=%,$(2)) $(3)\
++	$(1) --sysroot=/dev/null $(KBUILD_RUSTFLAGS_OPTION_CHKS) $(filter-out --sysroot=/dev/null --target=%target.json,$(2)) $(3)\
+ 	--crate-type=rlib --out-dir=$(TMPOUT) --emit=obj=- - >/dev/null,$(3),$(4))
+ 
+ # rustc-option
+-- 
+2.50.1
+

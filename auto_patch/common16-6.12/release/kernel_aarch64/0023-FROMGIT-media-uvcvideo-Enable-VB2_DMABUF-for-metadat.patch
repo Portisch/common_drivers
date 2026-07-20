@@ -1,7 +1,7 @@
 From 591da62999ebcc4ae768928e660db3f1f249922a Mon Sep 17 00:00:00 2001
 From: Ricardo Ribalda <ribalda@chromium.org>
 Date: Mon, 9 Mar 2026 15:01:54 +0000
-Subject: [PATCH 23/63] FROMGIT: media: uvcvideo: Enable VB2_DMABUF for
+Subject: [PATCH 023/223] FROMGIT: media: uvcvideo: Enable VB2_DMABUF for
  metadata stream
 
 The UVC driver has two video streams, one for the frames and another one

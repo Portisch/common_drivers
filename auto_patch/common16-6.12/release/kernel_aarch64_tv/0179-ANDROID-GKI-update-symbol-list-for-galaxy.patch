@@ -1,0 +1,111 @@
+From d6ee48ee39c1bfc29eea2fe00096f2b6771f896b Mon Sep 17 00:00:00 2001
+From: Soukjin Bae <soukjin.bae@samsung.com>
+Date: Mon, 30 Mar 2026 18:24:22 +0900
+Subject: [PATCH 179/223] ANDROID: GKI: update symbol list for galaxy
+
+1 function symbol(s) added
+  'int __traceiter_android_vh_reasm_timer_adjust(void*, struct inet_frag_queue*, struct sk_buff*)'
+
+1 variable symbol(s) added
+  'struct tracepoint __tracepoint_android_vh_reasm_timer_adjust'
+
+Bug: 497681021
+Bug: 516996459
+Change-Id: Ib547a786c7657e4b70d88698f01b7e8620e83747
+Signed-off-by: Soukjin Bae <soukjin.bae@samsung.com>
+(cherry picked from commit 8f225ad993398c18ebde5e514d9837cfe847cec4)
+Signed-off-by: Giuliano Procida <gprocida@google.com>
+---
+ gki/aarch64/abi.stg        | 27 +++++++++++++++++++++++++++
+ gki/aarch64/symbols/galaxy |  2 ++
+ 2 files changed, 29 insertions(+)
+
+diff --git a/gki/aarch64/abi.stg b/gki/aarch64/abi.stg
+index fe539a2ba78d..86f57b056f32 100644
+--- a/gki/aarch64/abi.stg
++++ b/gki/aarch64/abi.stg
+@@ -416847,6 +416847,13 @@ function {
+   parameter_id: 0x1ca06989
+   parameter_id: 0x6d7f5ff6
+ }
++function {
++  id: 0x9b4aa39e
++  return_type_id: 0x6720d32f
++  parameter_id: 0x18bd6530
++  parameter_id: 0x391289e8
++  parameter_id: 0x054f691a
++}
+ function {
+   id: 0x9b4ac008
+   return_type_id: 0x6720d32f
+@@ -445284,6 +445291,15 @@ elf_symbol {
+   type_id: 0x9b2f1988
+   full_name: "__traceiter_android_vh_readahead_add_folio"
+ }
++elf_symbol {
++  id: 0x946b8f48
++  name: "__traceiter_android_vh_reasm_timer_adjust"
++  is_defined: true
++  symbol_type: FUNCTION
++  crc: 0x25613bc7
++  type_id: 0x9b4aa39e
++  full_name: "__traceiter_android_vh_reasm_timer_adjust"
++}
+ elf_symbol {
+   id: 0xb6218fbe
+   name: "__traceiter_android_vh_rebalance_anon_lru_bypass"
+@@ -453312,6 +453328,15 @@ elf_symbol {
+   type_id: 0x18ccbd2c
+   full_name: "__tracepoint_android_vh_readahead_add_folio"
+ }
++elf_symbol {
++  id: 0xfa5ac542
++  name: "__tracepoint_android_vh_reasm_timer_adjust"
++  is_defined: true
++  symbol_type: OBJECT
++  crc: 0x7c5aa8a7
++  type_id: 0x18ccbd2c
++  full_name: "__tracepoint_android_vh_reasm_timer_adjust"
++}
+ elf_symbol {
+   id: 0x53ff9924
+   name: "__tracepoint_android_vh_rebalance_anon_lru_bypass"
+@@ -528454,6 +528479,7 @@ interface {
+   symbol_id: 0xaa42bd9c
+   symbol_id: 0xcf2bdce0
+   symbol_id: 0x6fe03e45
++  symbol_id: 0x946b8f48
+   symbol_id: 0xb6218fbe
+   symbol_id: 0x7334b2d0
+   symbol_id: 0x95816c0d
+@@ -529346,6 +529372,7 @@ interface {
+   symbol_id: 0xf0a69156
+   symbol_id: 0x9cdcdb66
+   symbol_id: 0xa0e3c9e3
++  symbol_id: 0xfa5ac542
+   symbol_id: 0x53ff9924
+   symbol_id: 0x1a12ee26
+   symbol_id: 0xfeaae6bb
+diff --git a/gki/aarch64/symbols/galaxy b/gki/aarch64/symbols/galaxy
+index 2dcc694c40a3..0b38170e1e08 100644
+--- a/gki/aarch64/symbols/galaxy
++++ b/gki/aarch64/symbols/galaxy
+@@ -133,6 +133,7 @@
+   __traceiter_android_vh_handle_add_blks_map
+   __traceiter_android_vh_handle_add_fec_mismatch_blks
+   __traceiter_android_vh_handle_get_b_info
++  __traceiter_android_vh_reasm_timer_adjust
+   __tracepoint_android_rvh_arm64_serror_panic
+   __tracepoint_android_rvh_die_kernel_fault
+   __tracepoint_android_rvh_do_el1_bti
+@@ -220,6 +221,7 @@
+   __tracepoint_android_vh_handle_add_skipped_blks
+   __tracepoint_android_vh_handle_add_blks_map
+   __tracepoint_android_vh_handle_get_b_info
++  __tracepoint_android_vh_reasm_timer_adjust
+   usb_alloc_dev
+   usb_set_device_state
+   usbnet_change_mtu
+-- 
+2.50.1
+

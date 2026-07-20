@@ -1,0 +1,74 @@
+From 0e1f140adb4c1fd5730779774acc630bea1b303f Mon Sep 17 00:00:00 2001
+From: Jing Yiming <jingyiming@xiaomi.corp-partner.google.com>
+Date: Mon, 13 Apr 2026 19:26:52 +0800
+Subject: [PATCH 068/223] ANDROID: GKI: update symbol list file for xiaomi
+
+1 function symbol(s) added
+  'unsigned int cpumask_any_distribute(const struct cpumask*)'
+
+Bug: 493943094
+Bug: 502347834
+
+Change-Id: I6c1de96c279631ac0b9d5eea5c9d9c5368f06971
+Signed-off-by: Jing Yiming <jingyiming@xiaomi.corp-partner.google.com>
+(cherry picked from commit 0b7789aa075833ba9347cbdb97b627fcb9d4ae09)
+---
+ gki/aarch64/abi.stg        | 15 +++++++++++++++
+ gki/aarch64/symbols/xiaomi |  1 +
+ 2 files changed, 16 insertions(+)
+
+diff --git a/gki/aarch64/abi.stg b/gki/aarch64/abi.stg
+index 6762d13007da..7f6181f819b8 100644
+--- a/gki/aarch64/abi.stg
++++ b/gki/aarch64/abi.stg
+@@ -431273,6 +431273,11 @@ function {
+   return_type_id: 0x4585663f
+   parameter_id: 0x32a623d7
+ }
++function {
++  id: 0xc298cefc
++  return_type_id: 0x4585663f
++  parameter_id: 0x310ec01d
++}
+ function {
+   id: 0xc29f6b92
+   return_type_id: 0x3b399f9e
+@@ -462851,6 +462856,15 @@ elf_symbol {
+   type_id: 0xc25cf5fc
+   full_name: "cpumask_any_and_distribute"
+ }
++elf_symbol {
++  id: 0x4c5ac0a5
++  name: "cpumask_any_distribute"
++  is_defined: true
++  symbol_type: FUNCTION
++  crc: 0xf121ed3d
++  type_id: 0xc298cefc
++  full_name: "cpumask_any_distribute"
++}
+ elf_symbol {
+   id: 0xd53a5822
+   name: "cpumask_local_spread"
+@@ -529846,6 +529860,7 @@ interface {
+   symbol_id: 0x9b056e94
+   symbol_id: 0x2061f0ca
+   symbol_id: 0xd878ab56
++  symbol_id: 0x4c5ac0a5
+   symbol_id: 0xd53a5822
+   symbol_id: 0xb1469ae6
+   symbol_id: 0x3afbe534
+diff --git a/gki/aarch64/symbols/xiaomi b/gki/aarch64/symbols/xiaomi
+index 71841ae0b50c..8162e84105bb 100644
+--- a/gki/aarch64/symbols/xiaomi
++++ b/gki/aarch64/symbols/xiaomi
+@@ -580,6 +580,7 @@ __traceiter_android_vh_mmap_lock_init
+ __tracepoint_android_vh_mmap_lock_init
+ __traceiter_android_vh_mmap_lock_free
+ __tracepoint_android_vh_mmap_lock_free
++cpumask_any_distribute
+ 
+ __tracepoint_android_vh_mm_get_zone_mark
+ __traceiter_android_vh_mm_get_zone_mark
+-- 
+2.50.1
+

@@ -1,0 +1,83 @@
+From 51a83061087491ce6e556d53e3538ed56e3d2db4 Mon Sep 17 00:00:00 2001
+From: Guan-Yu Lin <guanyulin@google.com>
+Date: Wed, 1 Apr 2026 12:32:18 +0000
+Subject: [PATCH 072/223] BACKPORT: usb: host: xhci-sideband: delegate
+ offload_usage tracking to class drivers
+
+Remove usb_offload_get() and usb_offload_put() from the xHCI sideband
+interrupter creation and removal paths.
+
+The responsibility of manipulating offload_usage now lies entirely with
+the USB class drivers. They have the precise context of when an offload
+data stream actually starts and stops, ensuring a much more accurate
+representation of offload activity for power management.
+
+Bug: 490220559
+Bug: 502699079
+Cc: stable <stable@kernel.org>
+Fixes: ef82a4803aab ("xhci: sideband: add api to trace sideband usage")
+(cherry picked from commit 5abbe6ecc6203355c770bf232ade88e29c960049)
+Change-Id: I8c85b9e8ca6329a9adae763d004597ce3f460e8e
+Signed-off-by: Guan-Yu Lin <guanyulin@google.com>
+Tested-by: Hailong Liu <hailong.liu@oppo.com>
+Tested-by: hailong.liu@oppo.com
+Acked-by: Mathias Nyman <mathias.nyman@linux.intel.com>
+Link: https://patch.msgid.link/20260401123238.3790062-3-guanyulin@google.com
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+[guanyulin: ignore changes in `qc_audio_offload.c`]
+Signed-off-by: Guan-Yu Lin <guanyulin@google.com>
+---
+ drivers/usb/host/xhci-sideband.c | 14 +-------------
+ 1 file changed, 1 insertion(+), 13 deletions(-)
+
+diff --git a/drivers/usb/host/xhci-sideband.c b/drivers/usb/host/xhci-sideband.c
+index 1ddb64b0a48e..651973606137 100644
+--- a/drivers/usb/host/xhci-sideband.c
++++ b/drivers/usb/host/xhci-sideband.c
+@@ -93,8 +93,6 @@ __xhci_sideband_remove_endpoint(struct xhci_sideband *sb, struct xhci_virt_ep *e
+ static void
+ __xhci_sideband_remove_interrupter(struct xhci_sideband *sb)
+ {
+-	struct usb_device *udev;
+-
+ 	lockdep_assert_held(&sb->mutex);
+ 
+ 	if (!sb->ir)
+@@ -102,10 +100,6 @@ __xhci_sideband_remove_interrupter(struct xhci_sideband *sb)
+ 
+ 	xhci_remove_secondary_interrupter(xhci_to_hcd(sb->xhci), sb->ir);
+ 	sb->ir = NULL;
+-	udev = sb->vdev->udev;
+-
+-	if (udev->state != USB_STATE_NOTATTACHED)
+-		usb_offload_put(udev);
+ }
+ 
+ /* sideband api functions */
+@@ -328,9 +322,6 @@ int
+ xhci_sideband_create_interrupter(struct xhci_sideband *sb, int num_seg,
+ 				 bool ip_autoclear, u32 imod_interval, int intr_num)
+ {
+-	int ret = 0;
+-	struct usb_device *udev;
+-
+ 	if (!sb || !sb->xhci)
+ 		return -ENODEV;
+ 
+@@ -348,12 +339,9 @@ xhci_sideband_create_interrupter(struct xhci_sideband *sb, int num_seg,
+ 	if (!sb->ir)
+ 		return -ENOMEM;
+ 
+-	udev = sb->vdev->udev;
+-	ret = usb_offload_get(udev);
+-
+ 	sb->ir->ip_autoclear = ip_autoclear;
+ 
+-	return ret;
++	return 0;
+ }
+ EXPORT_SYMBOL_GPL(xhci_sideband_create_interrupter);
+ 
+-- 
+2.50.1
+

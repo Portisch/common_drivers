@@ -1,0 +1,46 @@
+From a981f9b8c9a13a6d953dff213c59fae9d14a5888 Mon Sep 17 00:00:00 2001
+From: Vincent Donnefort <vdonnefort@google.com>
+Date: Wed, 13 May 2026 18:00:16 +0100
+Subject: [PATCH 203/223] ANDROID: arm64: errata: Fix KMI in cpucaps
+
+The backport of commit 7feee31490eb ("FROMLIST: arm64: errata: Work
+around early CME DVMSync acknowledgement") inadvertently broke KMI for
+the generated cpucaps definition. Move the introduced WORKAROUND
+definition in one of the available padding to fix KMI.
+
+Bug: 448672457
+Fixes: 7feee31490eb ("FROMLIST: arm64: errata: Work around early CME DVMSync acknowledgement")
+Signed-off-by: Vincent Donnefort <vdonnefort@google.com>
+Cherrypick-From: https://android-review.googlesource.com/q/commit:14af485d76385a3e9884ac43ef915049b25dbbd0
+Merged-In: I0752e18f4811ee9f0561fbf04940bdf8338f33dc
+Bug: 520016024
+Change-Id: I0752e18f4811ee9f0561fbf04940bdf8338f33dc
+Signed-off-by: Chung-Kai (Michael) Mei <chungkai@google.com>
+---
+ arch/arm64/tools/cpucaps | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/arch/arm64/tools/cpucaps b/arch/arm64/tools/cpucaps
+index 2ea2b980bf65..d7400812a195 100644
+--- a/arch/arm64/tools/cpucaps
++++ b/arch/arm64/tools/cpucaps
+@@ -90,7 +90,6 @@ WORKAROUND_2077057
+ WORKAROUND_2457168
+ WORKAROUND_2645198
+ WORKAROUND_2658417
+-WORKAROUND_4193714
+ WORKAROUND_4311569
+ WORKAROUND_AMPERE_AC03_CPU_38
+ WORKAROUND_TRBE_OVERWRITE_FILL_MODE
+@@ -109,7 +108,7 @@ WORKAROUND_REPEAT_TLBI
+ WORKAROUND_SPECULATIVE_AT
+ WORKAROUND_SPECULATIVE_SSBS
+ WORKAROUND_SPECULATIVE_UNPRIV_LOAD
+-ANDROID_KABI_RESERVE_01
++WORKAROUND_4193714
+ ANDROID_KABI_RESERVE_02
+ ANDROID_KABI_RESERVE_03
+ ANDROID_KABI_RESERVE_04
+-- 
+2.50.1
+

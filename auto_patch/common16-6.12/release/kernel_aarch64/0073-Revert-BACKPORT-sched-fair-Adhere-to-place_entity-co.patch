@@ -1,0 +1,55 @@
+From 8d745169cd7787b635a47e74bbe31cee7a7fa1c2 Mon Sep 17 00:00:00 2001
+From: John Stultz <jstultz@google.com>
+Date: Mon, 13 Apr 2026 21:55:03 +0000
+Subject: [PATCH 073/223] Revert "BACKPORT: sched/fair: Adhere to
+ place_entity() constraints"
+
+This reverts commit 26e1a088be7385576cdb9d4d3f749c0b485a5e2e.
+
+Commit 6d71a9c61604 ("sched/fair: Fix EEVDF entity placement bug
+causing scheduling lag") has been found to cause strange
+scheduling latencies for non background tasks, and needs to be
+reverted.
+
+Since this is a fix for commit 6d71a9c61604, we need to revert
+it as well.
+
+Bug: 499195381
+Bug: 501231869
+Bug: 501282076
+Bug: 502832295
+Change-Id: I33296a45a5e653d1c5217971f9be699dd3c0efde
+Signed-off-by: John Stultz <jstultz@google.com>
+(cherry picked from commit 34962374191abcc7ef32a03f111e6123472011f1)
+---
+ kernel/sched/fair.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
+
+diff --git a/kernel/sched/fair.c b/kernel/sched/fair.c
+index 36677c19c594..77e5b840dbd6 100644
+--- a/kernel/sched/fair.c
++++ b/kernel/sched/fair.c
+@@ -3850,7 +3850,6 @@ static void reweight_entity(struct cfs_rq *cfs_rq, struct sched_entity *se,
+ 		update_entity_lag(cfs_rq, se);
+ 		se->deadline -= se->vruntime;
+ 		se->rel_deadline = 1;
+-		cfs_rq->nr_running--;
+ 		if (!curr)
+ 			__dequeue_entity(cfs_rq, se);
+ 		update_load_sub(&cfs_rq->load, se->load.weight);
+@@ -3879,11 +3878,10 @@ static void reweight_entity(struct cfs_rq *cfs_rq, struct sched_entity *se,
+ 
+ 	enqueue_load_avg(cfs_rq, se);
+ 	if (se->on_rq) {
+-		place_entity(cfs_rq, se, 0);
+ 		update_load_add(&cfs_rq->load, se->load.weight);
++		place_entity(cfs_rq, se, 0);
+ 		if (!curr)
+ 			__enqueue_entity(cfs_rq, se);
+-		cfs_rq->nr_running++;
+ 
+ 		/*
+ 		 * The entity's vruntime has been adjusted, so let's check
+-- 
+2.50.1
+

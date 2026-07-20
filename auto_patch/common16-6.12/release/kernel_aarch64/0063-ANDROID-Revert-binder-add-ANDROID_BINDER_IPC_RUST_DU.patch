@@ -1,7 +1,7 @@
 From 310de68cc759908971af1c5a2e35bd69174e1f40 Mon Sep 17 00:00:00 2001
 From: Alice Ryhl <aliceryhl@google.com>
 Date: Wed, 1 Apr 2026 13:09:57 +0000
-Subject: [PATCH 63/63] ANDROID: Revert "binder: add
+Subject: [PATCH 063/223] ANDROID: Revert "binder: add
  ANDROID_BINDER_IPC_RUST_DUMMY"
 
 This reverts commit 6c96f52eb04fdfe2ee59883389907bbb15456a49.

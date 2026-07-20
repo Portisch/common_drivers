@@ -1,0 +1,140 @@
+From 6ced4c7fd63ca9880e1e885cd5e3997984111726 Mon Sep 17 00:00:00 2001
+From: Qais Yousef <qyousef@google.com>
+Date: Mon, 11 May 2026 15:05:12 +0000
+Subject: [PATCH 142/223] ANDROID: ABI: Update pixel symbol list
+
+Adding the following symbols:
+  - __pkvm_register_el2_call
+  - refcount_dec_and_mutex_lock
+  - spi_delay_to_ns
+  - __traceiter_android_rvh_iommu_dma_info_to_prot
+  - __traceiter_android_rvh_update_load_sum
+  - __tracepoint_android_rvh_iommu_dma_info_to_prot
+  - __tracepoint_android_rvh_update_load_sum
+
+Bug: 512050420
+Bug: 512490607
+Signed-off-by: Qais Yousef <qyousef@google.com>
+Cherrypick-From: https://android-review.googlesource.com/q/commit:0687c4b51ca133f4718221f6b33d2693a98517b6
+Merged-In: Ib87e05f04c17d1fbe4785c082b7a5e43221fdbde
+Change-Id: Ib87e05f04c17d1fbe4785c082b7a5e43221fdbde
+---
+ gki/aarch64/abi.stg       | 20 ++++++++++++++++++++
+ gki/aarch64/symbols/pixel |  7 +++++++
+ 2 files changed, 27 insertions(+)
+
+diff --git a/gki/aarch64/abi.stg b/gki/aarch64/abi.stg
+index 0166679dcc60..ca87c01b49ce 100644
+--- a/gki/aarch64/abi.stg
++++ b/gki/aarch64/abi.stg
+@@ -441479,6 +441479,15 @@ elf_symbol {
+   type_id: 0x99e4a4df
+   full_name: "__traceiter_android_rvh_update_load_avg_se"
+ }
++elf_symbol {
++  id: 0x6fdb7fd2
++  name: "__traceiter_android_rvh_update_load_sum"
++  is_defined: true
++  symbol_type: FUNCTION
++  crc: 0x7ec1e1ef
++  type_id: 0x9be2da56
++  full_name: "__traceiter_android_rvh_update_load_sum"
++}
+ elf_symbol {
+   id: 0x16809a5a
+   name: "__traceiter_android_rvh_update_misfit_status"
+@@ -449435,6 +449444,15 @@ elf_symbol {
+   type_id: 0x18ccbd2c
+   full_name: "__tracepoint_android_rvh_update_load_avg_se"
+ }
++elf_symbol {
++  id: 0x51c819cc
++  name: "__tracepoint_android_rvh_update_load_sum"
++  is_defined: true
++  symbol_type: OBJECT
++  crc: 0x7c5aa8a7
++  type_id: 0x18ccbd2c
++  full_name: "__tracepoint_android_rvh_update_load_sum"
++}
+ elf_symbol {
+   id: 0x1362c5b0
+   name: "__tracepoint_android_rvh_update_misfit_status"
+@@ -527840,6 +527858,7 @@ interface {
+   symbol_id: 0xa1fc4e45
+   symbol_id: 0xea6ec56d
+   symbol_id: 0x42b8fcc6
++  symbol_id: 0x6fdb7fd2
+   symbol_id: 0x16809a5a
+   symbol_id: 0x47fa897e
+   symbol_id: 0xfaa2e0a4
+@@ -528724,6 +528743,7 @@ interface {
+   symbol_id: 0x23231c63
+   symbol_id: 0x1dace1db
+   symbol_id: 0x8ca0ae74
++  symbol_id: 0x51c819cc
+   symbol_id: 0x1362c5b0
+   symbol_id: 0x6c04db48
+   symbol_id: 0xaa2da792
+diff --git a/gki/aarch64/symbols/pixel b/gki/aarch64/symbols/pixel
+index 4433332961ee..405d3c272ad9 100644
+--- a/gki/aarch64/symbols/pixel
++++ b/gki/aarch64/symbols/pixel
+@@ -2035,6 +2035,7 @@
+   pkvm_iommu_resume
+   pkvm_iommu_suspend
+   __pkvm_load_el2_module
++  __pkvm_register_el2_call
+   __pkvm_topup_hyp_alloc
+   platform_bus_type
+   platform_device_add
+@@ -2205,6 +2206,7 @@
+   rdev_get_regmap
+   read_comp_algo_dictionary
+   reboot_mode
++  refcount_dec_and_mutex_lock
+   refcount_dec_not_one
+   refcount_warn_saturate
+   __refrigerator
+@@ -2570,6 +2572,7 @@
+   spi_controller_resume
+   spi_controller_suspend
+   spi_delay_exec
++  spi_delay_to_ns
+   spi_finalize_current_message
+   spi_finalize_current_transfer
+   spi_mem_default_supports_op
+@@ -2767,6 +2770,7 @@
+   __traceiter_android_rvh_gup_longterm_locked
+   __traceiter_android_rvh_hw_protection_shutdown
+   __traceiter_android_rvh_iommu_alloc_insert_iova
++  __traceiter_android_rvh_iommu_dma_info_to_prot
+   __traceiter_android_rvh_iommu_iovad_init_alloc_algo
+   __traceiter_android_rvh_iommu_limit_align_shift
+   __traceiter_android_rvh_irqs_disable
+@@ -2802,6 +2806,7 @@
+   __traceiter_android_rvh_ufs_reprogram_all_keys
+   __traceiter_android_rvh_update_blocked_fair
+   __traceiter_android_rvh_update_load_avg
++  __traceiter_android_rvh_update_load_sum
+   __traceiter_android_rvh_update_rt_rq_load_avg
+   __traceiter_android_rvh_util_est_update
+   __traceiter_android_rvh_util_fits_cpu
+@@ -2927,6 +2932,7 @@
+   __tracepoint_android_rvh_gup_longterm_locked
+   __tracepoint_android_rvh_hw_protection_shutdown
+   __tracepoint_android_rvh_iommu_alloc_insert_iova
++  __tracepoint_android_rvh_iommu_dma_info_to_prot
+   __tracepoint_android_rvh_iommu_iovad_init_alloc_algo
+   __tracepoint_android_rvh_iommu_limit_align_shift
+   __tracepoint_android_rvh_irqs_disable
+@@ -2962,6 +2968,7 @@
+   __tracepoint_android_rvh_ufs_reprogram_all_keys
+   __tracepoint_android_rvh_update_blocked_fair
+   __tracepoint_android_rvh_update_load_avg
++  __tracepoint_android_rvh_update_load_sum
+   __tracepoint_android_rvh_update_rt_rq_load_avg
+   __tracepoint_android_rvh_util_est_update
+   __tracepoint_android_rvh_util_fits_cpu
+-- 
+2.50.1
+

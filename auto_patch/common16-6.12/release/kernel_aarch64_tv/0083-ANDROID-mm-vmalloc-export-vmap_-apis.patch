@@ -1,0 +1,48 @@
+From c179f0452ed980f85708744ecef31522c586fe5e Mon Sep 17 00:00:00 2001
+From: Charan Teja Kalla <quic_charante@quicinc.com>
+Date: Thu, 31 Jul 2025 23:11:04 +0530
+Subject: [PATCH 083/223] ANDROID: mm: vmalloc: export vmap_ apis
+
+Export below symbols:
+ vmap_pages_range_noflush
+ __vmap_pages_range_noflush
+
+These API are used to map the pages to kernel virtual address. These
+symbols are used to map a region, outside of the DDR, which can be still
+treated like DDR(think of like addressable TCM), on our targets.
+
+Bug: 436986667
+Bug: 435443840
+Bug: 503771689
+Change-Id: Id5a9683b6468b33b60866fdea80478baf4582bd2
+Signed-off-by: Charan Teja Kalla <quic_charante@quicinc.com>
+(cherry picked from commit a8de2377ccab75d3f576cb5820487ab01e8be5d3)
+(cherry picked from commit 54830590d485159b48ecf2e1ce870cd9978587f5)
+(cherry picked from commit 47de5969c8d85ea41ce6de4fd168ae84e286a37f)
+---
+ mm/vmalloc.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/mm/vmalloc.c b/mm/vmalloc.c
+index eafc12fb7d8f..95bf14f3915f 100644
+--- a/mm/vmalloc.c
++++ b/mm/vmalloc.c
+@@ -640,6 +640,7 @@ int __vmap_pages_range_noflush(unsigned long addr, unsigned long end,
+ 
+ 	return 0;
+ }
++EXPORT_SYMBOL_GPL(__vmap_pages_range_noflush);
+ 
+ int vmap_pages_range_noflush(unsigned long addr, unsigned long end,
+ 		pgprot_t prot, struct page **pages, unsigned int page_shift)
+@@ -651,6 +652,7 @@ int vmap_pages_range_noflush(unsigned long addr, unsigned long end,
+ 		return ret;
+ 	return __vmap_pages_range_noflush(addr, end, prot, pages, page_shift);
+ }
++EXPORT_SYMBOL_GPL(vmap_pages_range_noflush);
+ 
+ /**
+  * vmap_pages_range - map pages to a kernel virtual address
+-- 
+2.50.1
+

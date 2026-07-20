@@ -1,0 +1,63 @@
+From 25b6cc11977eea5f3ee1e1d10470d6d2042dc00a Mon Sep 17 00:00:00 2001
+From: Ard Biesheuvel <ardb@kernel.org>
+Date: Fri, 18 Apr 2025 16:12:55 +0200
+Subject: [PATCH 144/223] UPSTREAM: vmlinux.lds: Include .data.rel[.local] into
+ .data section
+
+When running in -fPIC mode, the compiler may decide to emit statically
+initialized data objects into .data.rel or .data.rel.local if they
+contain absolute references to global or local objects, respectively,
+which require fixing up at load time.
+
+This distinction is irrelevant for the kernel, so fold .data.rel and
+.data.rel.local into .data.
+
+Signed-off-by: Ard Biesheuvel <ardb@kernel.org>
+Signed-off-by: Ingo Molnar <mingo@kernel.org>
+Cc: Brian Gerst <brgerst@gmail.com>
+Cc: David Woodhouse <dwmw@amazon.co.uk>
+Cc: Dionna Amalie Glaze <dionnaglaze@google.com>
+Cc: H. Peter Anvin <hpa@zytor.com>
+Cc: Juergen Gross <jgross@suse.com>
+Cc: Kees Cook <keescook@chromium.org>
+Cc: Kevin Loughlin <kevinloughlin@google.com>
+Cc: Len Brown <len.brown@intel.com>
+Cc: Linus Torvalds <torvalds@linux-foundation.org>
+Cc: Rafael J. Wysocki <rafael.j.wysocki@intel.com>
+Cc: Tom Lendacky <thomas.lendacky@amd.com>
+Link: https://lore.kernel.org/r/20250418141253.2601348-9-ardb+git@google.com
+
+Bug: 497941020
+Bug: 512403003
+Test: tools/bazel build //common:kernel_x86_64 --kasan
+Change-Id: I8888d5b6cdfbe6df44fde9f6a59a451c9a0464f9
+(cherry picked from commit 092071e0f63c2d2c54810a427d4d9a0df6aad52b)
+Signed-off-by: Giuliano Procida <gprocida@google.com>
+Signed-off-by: Srinivasarao Pathipati <c_spathi@qti.qualcomm.com>
+---
+ include/asm-generic/vmlinux.lds.h | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/include/asm-generic/vmlinux.lds.h b/include/asm-generic/vmlinux.lds.h
+index dd8006ae6122..21fe0efb5867 100644
+--- a/include/asm-generic/vmlinux.lds.h
++++ b/include/asm-generic/vmlinux.lds.h
+@@ -108,13 +108,13 @@ defined(CONFIG_AUTOFDO_CLANG)
+ #define TEXT_MAIN .text
+ #endif
+ #if defined(CONFIG_LD_DEAD_CODE_DATA_ELIMINATION) || defined(CONFIG_LTO_CLANG)
+-#define DATA_MAIN .data .data.[0-9a-zA-Z_]* .data..L* .data..compoundliteral* .data.$__unnamed_* .data.$L*
++#define DATA_MAIN .data .data.[0-9a-zA-Z_]* .data.rel.* .data..L* .data..compoundliteral* .data.$__unnamed_* .data.$L*
+ #define SDATA_MAIN .sdata .sdata.[0-9a-zA-Z_]*
+ #define RODATA_MAIN .rodata .rodata.[0-9a-zA-Z_]* .rodata..L*
+ #define BSS_MAIN .bss .bss.[0-9a-zA-Z_]* .bss..L* .bss..compoundliteral*
+ #define SBSS_MAIN .sbss .sbss.[0-9a-zA-Z_]*
+ #else
+-#define DATA_MAIN .data
++#define DATA_MAIN .data .data.rel .data.rel.local
+ #define SDATA_MAIN .sdata
+ #define RODATA_MAIN .rodata
+ #define BSS_MAIN .bss
+-- 
+2.50.1
+

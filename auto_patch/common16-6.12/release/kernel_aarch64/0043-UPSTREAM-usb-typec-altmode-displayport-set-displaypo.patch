@@ -1,7 +1,7 @@
 From 55682a6d9bccb8f323386351f763b065bee385e0 Mon Sep 17 00:00:00 2001
 From: RD Babiera <rdbabiera@google.com>
 Date: Tue, 10 Mar 2026 20:41:05 +0000
-Subject: [PATCH 43/63] UPSTREAM: usb: typec: altmode/displayport: set
+Subject: [PATCH 043/223] UPSTREAM: usb: typec: altmode/displayport: set
  displayport signaling rate in configure message
 
 dp_altmode_configure sets the signaling rate to the current

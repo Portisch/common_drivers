@@ -1,8 +1,8 @@
 From 9b5153a95e13f591072a099a4650dd8169d5e086 Mon Sep 17 00:00:00 2001
 From: Ricardo Ribalda <ribalda@chromium.org>
 Date: Mon, 9 Mar 2026 15:01:56 +0000
-Subject: [PATCH 25/63] BACKPORT: FROMGIT: media: uvcvideo: Allow userspace to
- increase the meta buffersize
+Subject: [PATCH 025/223] BACKPORT: FROMGIT: media: uvcvideo: Allow userspace
+ to increase the meta buffersize
 
 Now we have the metadata size hardcoded to 10 KiB, this is a value that
 works fine for bulk cameras or frames with no extra metadata. But not

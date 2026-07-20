@@ -1,7 +1,8 @@
 From c61a2ce253949266a948e094c31f3a65068f0634 Mon Sep 17 00:00:00 2001
 From: Yidi Lin <yidilin@google.com>
 Date: Fri, 13 Mar 2026 21:05:18 +0800
-Subject: [PATCH 50/63] ANDROID: ABI: Add region_intersects to the symbol table
+Subject: [PATCH 050/223] ANDROID: ABI: Add region_intersects to the symbol
+ table
 
 Add region_intersects to the symbol table in order to check no-map
 memory region in coreboot_table module.

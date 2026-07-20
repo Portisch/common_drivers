@@ -1,0 +1,100 @@
+From 8348ff4d333b3eb995260fb6905eb19c08cb717a Mon Sep 17 00:00:00 2001
+From: Alice Ryhl <aliceryhl@google.com>
+Date: Thu, 7 May 2026 11:07:47 +0000
+Subject: [PATCH 223/223] BACKPORT: FROMGIT: rust_binder: use
+ lock_vma_under_rcu() in shrinker
+
+The shrinker callback currently uses the mmap read trylock operation to
+attempt to access the vma, but it's generally better to only lock the
+vma instead of the whole mmap when you can.
+
+When lock_vma_under_rcu() fails, there is no reason to lock the mmap
+lock instead because it's already a trylock operation that is allowed to
+fail.
+
+Bug: 489347678
+Change-Id: I20c22940a283c66e29f35b8df6ee6262ac832ea9
+Signed-off-by: Alice Ryhl <aliceryhl@google.com>
+Acked-by: Lorenzo Stoakes <ljs@kernel.org>
+Link: https://patch.msgid.link/20260507-binder-shrinker-lockvma-v1-1-76e3406bbfa6@google.com
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 908ad5bcccdcd8ab5582c0b7fe3091c5146c0b7a
+ https://git.kernel.org/pub/scm/linux/kernel/git/gregkh/char-misc.git char-misc-next)
+[aliceryhl: resolved minor conflict in drivers/android/binder/page_range.rs preserving tracepoints and zap_page_range_single]
+Signed-off-by: Alice Ryhl <aliceryhl@google.com>
+Bug: 524190576
+---
+ drivers/android/binder/page_range.rs | 28 +++++++++++++---------------
+ 1 file changed, 13 insertions(+), 15 deletions(-)
+
+diff --git a/drivers/android/binder/page_range.rs b/drivers/android/binder/page_range.rs
+index 90834de686c1..a50e0b3d7a36 100644
+--- a/drivers/android/binder/page_range.rs
++++ b/drivers/android/binder/page_range.rs
+@@ -723,7 +723,7 @@ fn drop(self: Pin<&mut Self>) {
+     let page;
+     let page_index;
+     let mm;
+-    let mmap_read;
++    let vma_read;
+     let mm_mutex;
+     let vma_addr;
+     let range_ptr;
+@@ -746,17 +746,18 @@ fn drop(self: Pin<&mut Self>) {
+             None => return LRU_SKIP,
+         };
+ 
+-        mmap_read = match mm.mmap_read_trylock() {
+-            Some(guard) => guard,
+-            None => return LRU_SKIP,
+-        };
+-
+         // We can't lock it normally here, since we hold the lru lock.
+         let inner = match range.lock.try_lock() {
+             Some(inner) => inner,
+             None => return LRU_SKIP,
+         };
+ 
++        vma_addr = inner.vma_addr;
++        vma_read = match mm.lock_vma_under_rcu(vma_addr) {
++            Some(guard) => guard,
++            None => return LRU_SKIP,
++        };
++
+         // SAFETY: The item is in this lru list, so it's okay to remove it.
+         unsafe { bindings::list_lru_isolate(lru, item) };
+ 
+@@ -772,7 +773,6 @@ fn drop(self: Pin<&mut Self>) {
+         // `zap_page_range` before we release the mmap lock, so `use_page_slow` will not be able to
+         // insert a new page until after our call to `zap_page_range`.
+         page = unsafe { PageInfo::take_page(info) };
+-        vma_addr = inner.vma_addr;
+ 
+         crate::trace::trace_unmap_kernel_end(pid, page_index);
+ 
+@@ -784,16 +784,14 @@ fn drop(self: Pin<&mut Self>) {
+     // SAFETY: The lru lock is locked when this method is called.
+     unsafe { bindings::spin_unlock(lru_lock) };
+ 
+-    if let Some(unchecked_vma) = mmap_read.vma_lookup(vma_addr) {
+-        if let Some(vma) = check_vma(unchecked_vma, range_ptr) {
+-            let user_page_addr = vma_addr + (page_index << PAGE_SHIFT);
+-            crate::trace::trace_unmap_user_start(pid, page_index);
+-            vma.zap_page_range_single(user_page_addr, PAGE_SIZE);
+-            crate::trace::trace_unmap_user_end(pid, page_index);
+-        }
++    if let Some(vma) = check_vma(&vma_read, range_ptr) {
++        let user_page_addr = vma_addr + (page_index << PAGE_SHIFT);
++        crate::trace::trace_unmap_user_start(pid, page_index);
++        vma.zap_page_range_single(user_page_addr, PAGE_SIZE);
++        crate::trace::trace_unmap_user_end(pid, page_index);
+     }
+ 
+-    drop(mmap_read);
++    drop(vma_read);
+     drop(mm_mutex);
+     drop(mm);
+     drop(page);
+-- 
+2.50.1
+

@@ -1,0 +1,44 @@
+From 0abf3925deb7a4eb49bb744032b6340e6567ab99 Mon Sep 17 00:00:00 2001
+From: Alice Ryhl <aliceryhl@google.com>
+Date: Fri, 29 May 2026 13:28:38 +0000
+Subject: [PATCH 213/223] FROMLIST: rust: net: add rust/kernel/net to
+ NETWORKING [GENERAL]
+
+To ensure that networking code can be found in a single shared place,
+add it to the relevant NETWORKING entry. The net.rs file is moved into
+the net/ directory so that it's included under the MAINTAINERS entry
+without needing a separate rust/kernel/net.rs entry.
+
+Reviewed-by: Carlos Llamas <cmllamas@google.com>
+Acked-by: Jakub Kicinski <kuba@kernel.org>
+Link: https://lore.kernel.org/r/20260529-binder-netlink-v6-1-92dd74b6a32e@google.com
+Bug: 489341806
+Change-Id: I12928714082dc727505c98ba0cad806a12517395
+Signed-off-by: Alice Ryhl <aliceryhl@google.com>
+Bug: 522161277
+---
+ MAINTAINERS                        | 2 ++
+ rust/kernel/{net.rs => net/mod.rs} | 0
+ 2 files changed, 2 insertions(+)
+ rename rust/kernel/{net.rs => net/mod.rs} (100%)
+
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 39b7c92390f4..75799497b380 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -16224,6 +16224,8 @@ F:	include/uapi/linux/rtnetlink.h
+ F:	lib/net_utils.c
+ F:	lib/random32.c
+ F:	net/
++F:	rust/helpers/net/
++F:	rust/kernel/net/
+ F:	samples/pktgen/
+ F:	tools/net/
+ F:	tools/testing/selftests/net/
+diff --git a/rust/kernel/net.rs b/rust/kernel/net/mod.rs
+similarity index 100%
+rename from rust/kernel/net.rs
+rename to rust/kernel/net/mod.rs
+-- 
+2.50.1
+

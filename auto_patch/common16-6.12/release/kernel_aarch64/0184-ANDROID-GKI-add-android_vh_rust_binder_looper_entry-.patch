@@ -1,0 +1,120 @@
+From 9fd7e18b52f192bb481ee8aa50c64c39697a93f7 Mon Sep 17 00:00:00 2001
+From: Alice Ryhl <aliceryhl@google.com>
+Date: Fri, 29 May 2026 09:59:21 +0000
+Subject: [PATCH 184/223] ANDROID: GKI: add android_vh_rust_binder_looper_entry
+ to pixel symbol list
+
+This vendor hook was added for use by Pixel devices, thus add it to the
+pixel symbol list.
+
+Bug: 486143390
+Change-Id: Ic7545e8122f5df6e3525c3aef540c6c02fa44519
+Signed-off-by: Alice Ryhl <aliceryhl@google.com>
+(cherry picked from commit 5c1cb6001317dd4e88bf2b9a177360af80d3df97)
+Bug: 519146656
+---
+ gki/aarch64/abi.stg       | 32 ++++++++++++++++++++++++++++++++
+ gki/aarch64/symbols/pixel |  2 ++
+ 2 files changed, 34 insertions(+)
+
+diff --git a/gki/aarch64/abi.stg b/gki/aarch64/abi.stg
+index 86f57b056f32..a02f5c4c3ced 100644
+--- a/gki/aarch64/abi.stg
++++ b/gki/aarch64/abi.stg
+@@ -39888,6 +39888,11 @@ typedef {
+   name: "rtnl_dumpit_func"
+   referred_type_id: 0x2d883419
+ }
++typedef {
++  id: 0x03476274
++  name: "rust_binder_thread"
++  referred_type_id: 0x18bd6530
++}
+ typedef {
+   id: 0x79348be0
+   name: "rust_binder_transaction"
+@@ -419489,6 +419494,13 @@ function {
+   parameter_id: 0x0622699d
+   parameter_id: 0x11cfee5a
+ }
++function {
++  id: 0x9bb3c6b3
++  return_type_id: 0x6720d32f
++  parameter_id: 0x18bd6530
++  parameter_id: 0x03476274
++  parameter_id: 0x4585663f
++}
+ function {
+   id: 0x9bb49c5c
+   return_type_id: 0x6720d32f
+@@ -445534,6 +445546,15 @@ elf_symbol {
+   type_id: 0x9beff51f
+   full_name: "__traceiter_android_vh_rtmutex_wait_start"
+ }
++elf_symbol {
++  id: 0x42e7b689
++  name: "__traceiter_android_vh_rust_binder_looper_entry"
++  is_defined: true
++  symbol_type: FUNCTION
++  crc: 0xbd183552
++  type_id: 0x9bb3c6b3
++  full_name: "__traceiter_android_vh_rust_binder_looper_entry"
++}
+ elf_symbol {
+   id: 0x452224ed
+   name: "__traceiter_android_vh_rust_binder_restore_priority"
+@@ -453571,6 +453592,15 @@ elf_symbol {
+   type_id: 0x18ccbd2c
+   full_name: "__tracepoint_android_vh_rtmutex_wait_start"
+ }
++elf_symbol {
++  id: 0x7181eb6f
++  name: "__tracepoint_android_vh_rust_binder_looper_entry"
++  is_defined: true
++  symbol_type: OBJECT
++  crc: 0x7c5aa8a7
++  type_id: 0x18ccbd2c
++  full_name: "__tracepoint_android_vh_rust_binder_looper_entry"
++}
+ elf_symbol {
+   id: 0x0d79140b
+   name: "__tracepoint_android_vh_rust_binder_restore_priority"
+@@ -528506,6 +528536,7 @@ interface {
+   symbol_id: 0x91384eff
+   symbol_id: 0x3ef508a2
+   symbol_id: 0xfb1b8d64
++  symbol_id: 0x42e7b689
+   symbol_id: 0x452224ed
+   symbol_id: 0x79848d02
+   symbol_id: 0x5858f827
+@@ -529399,6 +529430,7 @@ interface {
+   symbol_id: 0x3fc5ffc9
+   symbol_id: 0xa3915d70
+   symbol_id: 0xf01f02ea
++  symbol_id: 0x7181eb6f
+   symbol_id: 0x0d79140b
+   symbol_id: 0x5acb67f0
+   symbol_id: 0xe471b8d5
+diff --git a/gki/aarch64/symbols/pixel b/gki/aarch64/symbols/pixel
+index 405d3c272ad9..49a8022db2ad 100644
+--- a/gki/aarch64/symbols/pixel
++++ b/gki/aarch64/symbols/pixel
+@@ -2855,6 +2855,7 @@
+   __traceiter_android_vh_ra_alloc_retry
+   __traceiter_android_vh_resume_end
+   __traceiter_android_vh_rmqueue
++  __traceiter_android_vh_rust_binder_looper_entry
+   __traceiter_android_vh_rust_binder_restore_priority
+   __traceiter_android_vh_rust_binder_set_priority
+   __traceiter_android_vh_scheduler_tick
+@@ -3017,6 +3018,7 @@
+   __tracepoint_android_vh_ra_alloc_retry
+   __tracepoint_android_vh_resume_end
+   __tracepoint_android_vh_rmqueue
++  __tracepoint_android_vh_rust_binder_looper_entry
+   __tracepoint_android_vh_rust_binder_restore_priority
+   __tracepoint_android_vh_rust_binder_set_priority
+   __tracepoint_android_vh_scheduler_tick
+-- 
+2.50.1
+

@@ -1,0 +1,148 @@
+From 074e61164d0a3a035af8b1797166516226b2a54c Mon Sep 17 00:00:00 2001
+From: Chao Yu <chao@kernel.org>
+Date: Wed, 4 Feb 2026 11:05:01 +0800
+Subject: [PATCH 103/223] BACKPORT: UPSTREAM: f2fs: sysfs: introduce
+ critical_task_priority
+
+This patch introduces /sys/fs/f2fs/<disk>/critical_task_priority, w/
+this new sysfs interface, we can tune priority of f2fs_ckpt thread and
+f2fs_gc thread.
+
+Bug: 408202989
+Bug: 505305733
+Change-Id: Ib841a5bd2e58cd8ec28cf3c21512021f2d81e69a
+Signed-off-by: Chao Yu <chao@kernel.org>
+Signed-off-by: Jaegeuk Kim <jaegeuk@kernel.org>
+(cherry picked from commit 52190933c37a96164b271f3f30c16099d9eb8c09)
+[Chao: git cherry-pick automatically fix the conflict, I checked the result]
+Signed-off-by: Chao Yu <chaseyu@google.com>
+---
+ Documentation/ABI/testing/sysfs-fs-f2fs |  8 ++++++++
+ fs/f2fs/checkpoint.c                    |  2 ++
+ fs/f2fs/f2fs.h                          |  4 ++++
+ fs/f2fs/gc.c                            |  2 ++
+ fs/f2fs/super.c                         |  1 +
+ fs/f2fs/sysfs.c                         | 17 +++++++++++++++++
+ 6 files changed, 34 insertions(+)
+
+diff --git a/Documentation/ABI/testing/sysfs-fs-f2fs b/Documentation/ABI/testing/sysfs-fs-f2fs
+index bb7acf45d8e9..a83b5f4cb860 100644
+--- a/Documentation/ABI/testing/sysfs-fs-f2fs
++++ b/Documentation/ABI/testing/sysfs-fs-f2fs
+@@ -929,3 +929,11 @@ Contact:	"Chao Yu" <chao@kernel.org>
+ Description:	f2fs can tune priority of thread which has entered into critical region covered by
+ 		f2fs rwsemphore lock. This sysfs entry can be used to control priority value, the
+ 		range is [100,139], by default the value is 120.
++
++What:		/sys/fs/f2fs/<disk>/critical_task_priority
++Date:		February 2026
++Contact:	"Chao Yu" <chao@kernel.org>
++Description:	It can be used to tune priority of f2fs critical task, e.g. f2fs_ckpt, f2fs_gc
++		threads, limitation as below:
++		- it requires user has CAP_SYS_NICE capability.
++		- the range is [100, 139], by default the value is 100.
+diff --git a/fs/f2fs/checkpoint.c b/fs/f2fs/checkpoint.c
+index 621ab639df50..566fef4a312b 100644
+--- a/fs/f2fs/checkpoint.c
++++ b/fs/f2fs/checkpoint.c
+@@ -2131,6 +2131,8 @@ int f2fs_start_ckpt_thread(struct f2fs_sb_info *sbi)
+ 	}
+ 
+ 	set_task_ioprio(cprc->f2fs_issue_ckpt, cprc->ckpt_thread_ioprio);
++	set_user_nice(cprc->f2fs_issue_ckpt,
++			PRIO_TO_NICE(sbi->critical_task_priority));
+ 
+ 	return 0;
+ }
+diff --git a/fs/f2fs/f2fs.h b/fs/f2fs/f2fs.h
+index eade59ee96d1..c29cab59be61 100644
+--- a/fs/f2fs/f2fs.h
++++ b/fs/f2fs/f2fs.h
+@@ -1494,6 +1494,7 @@ enum {
+ #define MAX_LOCK_ELAPSED_TIME		500
+ 
+ #define F2FS_DEFAULT_TASK_PRIORITY		(DEFAULT_PRIO)
++#define F2FS_CRITICAL_TASK_PRIORITY		NICE_TO_PRIO(0)
+ 
+ static inline int f2fs_test_bit(unsigned int nr, char *addr);
+ static inline void f2fs_set_bit(unsigned int nr, char *addr);
+@@ -1899,6 +1900,9 @@ struct f2fs_sb_info {
+ 	/* adjust priority for task which is in critical region covered by lock */
+ 	unsigned int lock_duration_priority;
+ 
++	/* priority for critical task, e.g. f2fs_ckpt, f2fs_gc threads */
++	long critical_task_priority;
++
+ #ifdef CONFIG_F2FS_FS_COMPRESSION
+ 	struct kmem_cache *page_array_slab;	/* page array entry */
+ 	unsigned int page_array_slab_size;	/* default page array slab size */
+diff --git a/fs/f2fs/gc.c b/fs/f2fs/gc.c
+index 1cb796910337..648d706b7cdb 100644
+--- a/fs/f2fs/gc.c
++++ b/fs/f2fs/gc.c
+@@ -234,6 +234,8 @@ int f2fs_start_gc_thread(struct f2fs_sb_info *sbi)
+ 		return err;
+ 	}
+ 
++	set_user_nice(gc_th->f2fs_gc_task,
++			PRIO_TO_NICE(sbi->critical_task_priority));
+ 	return 0;
+ }
+ 
+diff --git a/fs/f2fs/super.c b/fs/f2fs/super.c
+index 108969fda7c5..7c31acbc9c48 100644
+--- a/fs/f2fs/super.c
++++ b/fs/f2fs/super.c
+@@ -4034,6 +4034,7 @@ static void init_sb_info(struct f2fs_sb_info *sbi)
+ 	sbi->max_lock_elapsed_time = MAX_LOCK_ELAPSED_TIME;
+ 	sbi->adjust_lock_priority = 0;
+ 	sbi->lock_duration_priority = F2FS_DEFAULT_TASK_PRIORITY;
++	sbi->critical_task_priority = F2FS_CRITICAL_TASK_PRIORITY;
+ 
+ 	sbi->dir_level = DEF_DIR_LEVEL;
+ 	sbi->interval_time[CP_TIME] = DEF_CP_INTERVAL;
+diff --git a/fs/f2fs/sysfs.c b/fs/f2fs/sysfs.c
+index 05a6b9428794..1b8c8739b2c2 100644
+--- a/fs/f2fs/sysfs.c
++++ b/fs/f2fs/sysfs.c
+@@ -896,6 +896,21 @@ static ssize_t __sbi_store(struct f2fs_attr *a,
+ 		return count;
+ 	}
+ 
++	if (!strcmp(a->attr.name, "critical_task_priority")) {
++		if (t < NICE_TO_PRIO(MIN_NICE) || t > NICE_TO_PRIO(MAX_NICE))
++			return -EINVAL;
++		if (!capable(CAP_SYS_NICE))
++			return -EPERM;
++		sbi->critical_task_priority = t;
++		if (sbi->cprc_info.f2fs_issue_ckpt)
++			set_user_nice(sbi->cprc_info.f2fs_issue_ckpt,
++					PRIO_TO_NICE(sbi->critical_task_priority));
++		if (sbi->gc_thread && sbi->gc_thread->f2fs_gc_task)
++			set_user_nice(sbi->gc_thread->f2fs_gc_task,
++					PRIO_TO_NICE(sbi->critical_task_priority));
++		return count;
++	}
++
+ 	*ui = (unsigned int)t;
+ 
+ 	return count;
+@@ -1208,6 +1223,7 @@ F2FS_SBI_GENERAL_RW_ATTR(reserved_pin_section);
+ F2FS_SBI_GENERAL_RW_ATTR(max_lock_elapsed_time);
+ F2FS_SBI_GENERAL_RW_ATTR(lock_duration_priority);
+ F2FS_SBI_GENERAL_RW_ATTR(adjust_lock_priority);
++F2FS_SBI_GENERAL_RW_ATTR(critical_task_priority);
+ 
+ /* STAT_INFO ATTR */
+ #ifdef CONFIG_F2FS_STAT_FS
+@@ -1409,6 +1425,7 @@ static struct attribute *f2fs_attrs[] = {
+ 	ATTR_LIST(max_lock_elapsed_time),
+ 	ATTR_LIST(lock_duration_priority),
+ 	ATTR_LIST(adjust_lock_priority),
++	ATTR_LIST(critical_task_priority),
+ 	NULL,
+ };
+ ATTRIBUTE_GROUPS(f2fs);
+-- 
+2.50.1
+

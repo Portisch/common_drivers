@@ -1,7 +1,7 @@
 From d6aaade7fd3f6fe434e0a3c1bc49ec8c03117db8 Mon Sep 17 00:00:00 2001
 From: Sergey Senozhatsky <senozhatsky@chromium.org>
 Date: Thu, 19 Mar 2026 12:44:56 +0900
-Subject: [PATCH 15/63] BACKPORT: FROMGIT: zram: do not slot_free()
+Subject: [PATCH 015/223] BACKPORT: FROMGIT: zram: do not slot_free()
  written-back slots
 
 slot_free() basically completely resets the slots by clearing all of

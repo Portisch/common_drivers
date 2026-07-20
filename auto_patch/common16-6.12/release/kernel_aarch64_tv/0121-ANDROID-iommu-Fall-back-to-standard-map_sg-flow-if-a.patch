@@ -1,0 +1,56 @@
+From eeaef281ad06b9c7eb9f3ddf4a5ff03863fc853c Mon Sep 17 00:00:00 2001
+From: Daniel Mentz <danielmentz@google.com>
+Date: Mon, 4 May 2026 22:37:42 +0000
+Subject: [PATCH 121/223] ANDROID: iommu: Fall back to standard map_sg flow if
+ alloc_cookie_sg fails
+
+Quietly fall back to the standard map_sg flow if ops->alloc_cookie_sg
+fails.
+
+The deferred map_sg operations were introduced as a performance
+optimization to batch mappings and reduce the number of hypervisor calls
+required for one map_sg operation.
+
+Allowing ops->alloc_cookie_sg to fail has benefits in at least two
+situations:
+
+1. Memory allocation for the sg cookie might fail (e.g. due to
+   GFP_ATOMIC). In this case, falling back to the original method allows
+   the operation to still complete successfully.
+
+2. IOMMU drivers can choose the standard method for short sg lists. For
+   very short lists (e.g. length 2), it may be faster to call the
+   hypervisor once per element rather than allocating, sharing, and
+   unsharing a cookie.
+
+Bug: 509981440
+Bug: 509660320
+Change-Id: Ieddd63361ea45a2250204bb99393da8785e2effb
+Signed-off-by: Daniel Mentz <danielmentz@google.com>
+---
+ drivers/iommu/iommu.c | 9 ++++-----
+ 1 file changed, 4 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/iommu/iommu.c b/drivers/iommu/iommu.c
+index 07dfc1e476ed..54bc9c60647c 100644
+--- a/drivers/iommu/iommu.c
++++ b/drivers/iommu/iommu.c
+@@ -2694,11 +2694,10 @@ ssize_t iommu_map_sg(struct iommu_domain *domain, unsigned long iova,
+ 
+ 	if (deferred_sg) {
+ 		cookie_sg = ops->alloc_cookie_sg(iova, prot, nents, gfp);
+-		if (!cookie_sg) {
+-			pr_err("iommu: failed alloc cookie\n");
+-			return -ENOMEM;
+-		}
+-		cookie_sg->domain = domain;
++		if (cookie_sg)
++			cookie_sg->domain = domain;
++		else
++			deferred_sg = false;
+ 	}
+ 
+ 	while (i <= nents) {
+-- 
+2.50.1
+

@@ -1,0 +1,95 @@
+From bdd1bd33cec0e49076221a0542f319ddcbb545e3 Mon Sep 17 00:00:00 2001
+From: Sooyong Suk <s.suk@samsung.corp-partner.google.com>
+Date: Fri, 22 May 2026 18:02:10 +0900
+Subject: [PATCH 204/223] ANDROID: mm: add vendor hook for do_swap_page
+
+Add vendor hooks to replace global swapcache waitqueue with hash-based
+waitqueue.
+
+Bug: 514180992
+Bug: 521135041
+Change-Id: I9b789221bb237ae274dace3968abcb0367b8e7d5
+(cherry picked from commit 1f056575c3e27c31cbaba09aa4641a516c40b8e4)
+Signed-off-by: Sooyong Suk <s.suk@samsung.corp-partner.google.com>
+---
+ drivers/android/vendor_hooks.c | 2 ++
+ include/trace/hooks/mm.h       | 6 ++++++
+ mm/memory.c                    | 6 ++++++
+ 3 files changed, 14 insertions(+)
+
+diff --git a/drivers/android/vendor_hooks.c b/drivers/android/vendor_hooks.c
+index 0bfe6357966b..34e32fc38859 100644
+--- a/drivers/android/vendor_hooks.c
++++ b/drivers/android/vendor_hooks.c
+@@ -744,4 +744,6 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_lock_task_exit);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_read_swap_cache_async_timeout);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_skip_cma);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_override_exec_folio_order);
++EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_do_swap_page_relax);
++EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_do_swap_page_done);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_reasm_timer_adjust);
+diff --git a/include/trace/hooks/mm.h b/include/trace/hooks/mm.h
+index 2879314236c5..e8464cc2d1ff 100644
+--- a/include/trace/hooks/mm.h
++++ b/include/trace/hooks/mm.h
+@@ -34,6 +34,9 @@ DECLARE_RESTRICTED_HOOK(android_rvh_try_alloc_pages_gfp,
+ 			TP_PROTO(struct page **page, unsigned int order,
+ 				gfp_t gfp, enum zone_type highest_zoneidx),
+ 			TP_ARGS(page, order, gfp, highest_zoneidx), 1);
++DECLARE_RESTRICTED_HOOK(android_rvh_do_swap_page_relax,
++			TP_PROTO(swp_entry_t entry, bool *bypass),
++			TP_ARGS(entry, bypass), 1);
+ DECLARE_RESTRICTED_HOOK(android_rvh_shmem_suitable_orders,
+ 			TP_PROTO(struct inode *inode, pgoff_t index,
+ 				unsigned long orders, unsigned long *suitable_orders),
+@@ -737,6 +740,9 @@ DECLARE_HOOK(android_vh_exit_oom_victim,
+ DECLARE_HOOK(android_vh_oom_killer_disable,
+ 	TP_PROTO(int oom_victims),
+ 	TP_ARGS(oom_victims));
++DECLARE_HOOK(android_vh_do_swap_page_done,
++	TP_PROTO(swp_entry_t entry),
++	TP_ARGS(entry));
+ DECLARE_HOOK(android_vh_smaps_rollup_contended,
+ 	TP_PROTO(int map_count, int nr_contended, int *ret),
+ 	TP_ARGS(map_count, nr_contended, ret));
+diff --git a/mm/memory.c b/mm/memory.c
+index 6fc805acb924..5a06ed288a58 100644
+--- a/mm/memory.c
++++ b/mm/memory.c
+@@ -4242,6 +4242,7 @@ vm_fault_t do_swap_page(struct vm_fault *vmf)
+ 	unsigned long page_idx;
+ 	unsigned long address;
+ 	pte_t *ptep;
++	bool bypass = false;
+ 
+ 	if (!pte_unmap_same(vmf))
+ 		goto out;
+@@ -4327,6 +4328,9 @@ vm_fault_t do_swap_page(struct vm_fault *vmf)
+ 					 * Relax a bit to prevent rapid
+ 					 * repeated page faults.
+ 					 */
++					trace_android_rvh_do_swap_page_relax(entry, &bypass);
++					if (bypass)
++						goto out_page;
+ 					add_wait_queue(&swapcache_wq, &wait);
+ 					schedule_timeout_uninterruptible(1);
+ 					remove_wait_queue(&swapcache_wq, &wait);
+@@ -4642,6 +4646,7 @@ vm_fault_t do_swap_page(struct vm_fault *vmf)
+ 		swapcache_clear(si, entry, nr_pages);
+ 		if (waitqueue_active(&swapcache_wq))
+ 			wake_up(&swapcache_wq);
++		trace_android_vh_do_swap_page_done(entry);
+ 	}
+ 	if (si)
+ 		put_swap_device(si);
+@@ -4661,6 +4666,7 @@ vm_fault_t do_swap_page(struct vm_fault *vmf)
+ 		swapcache_clear(si, entry, nr_pages);
+ 		if (waitqueue_active(&swapcache_wq))
+ 			wake_up(&swapcache_wq);
++		trace_android_vh_do_swap_page_done(entry);
+ 	}
+ 	if (si)
+ 		put_swap_device(si);
+-- 
+2.50.1
+

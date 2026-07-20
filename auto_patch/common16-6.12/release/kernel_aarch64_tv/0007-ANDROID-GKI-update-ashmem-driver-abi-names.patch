@@ -1,7 +1,7 @@
 From 6d741d27626df65518a490544e2b1be2ee4efbc6 Mon Sep 17 00:00:00 2001
 From: Alice Ryhl <aliceryhl@google.com>
 Date: Fri, 13 Mar 2026 14:18:52 +0000
-Subject: [PATCH 07/63] ANDROID: GKI: update ashmem driver abi names
+Subject: [PATCH 007/223] ANDROID: GKI: update ashmem driver abi names
 
 The full struct names were not updated when the ashmem driver was
 renamed. Thus, fix it.

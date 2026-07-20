@@ -1,7 +1,7 @@
 From d023b0c5aac752a2263aba0b5afd585343aab8c1 Mon Sep 17 00:00:00 2001
 From: Bala M T <mtbala@google.com>
 Date: Sun, 15 Mar 2026 22:24:37 -0700
-Subject: [PATCH 04/63] ANDROID: PCI: Add vendor hook for power-up state
+Subject: [PATCH 004/223] ANDROID: PCI: Add vendor hook for power-up state
  verification
 
 Introduce a new tracepoint `android_vh_pci_pm_verify_state` to allow

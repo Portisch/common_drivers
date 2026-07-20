@@ -1,7 +1,7 @@
 From c8366273ff73f3794018cd64ea13cbd6f5f5286a Mon Sep 17 00:00:00 2001
 From: Alice Ryhl <aliceryhl@google.com>
 Date: Tue, 17 Mar 2026 10:42:55 +0000
-Subject: [PATCH 59/63] ANDROID: rust_binder: add rust_binder_thread_task()
+Subject: [PATCH 059/223] ANDROID: rust_binder: add rust_binder_thread_task()
 
 In cases where the sender of a transaction can't find a target
 transaction, it's not possible to immediately set the priority for

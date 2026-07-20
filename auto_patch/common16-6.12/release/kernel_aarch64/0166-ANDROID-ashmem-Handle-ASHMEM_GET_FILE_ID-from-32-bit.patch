@@ -1,0 +1,194 @@
+From 5e1be38411708ce7f082c8352890ba92f1665e4a Mon Sep 17 00:00:00 2001
+From: "Isaac J. Manjarres" <isaacmanjarres@google.com>
+Date: Wed, 22 Apr 2026 04:20:36 +0000
+Subject: [PATCH 166/223] ANDROID: ashmem: Handle ASHMEM_GET_FILE_ID from
+ 32-bit userspace programs
+
+ASHMEM_GET_FILE_ID is defined as taking a pointer to an unsigned long as
+an input parameter. This is unfortunate, as the size of an unsigned long
+is different across 64 and 32-bit programs, and consequently so is the
+definition of the ioctl command.
+
+So, when invoked from a process executing a 32-bit program on a 64-bit
+kernel, the ioctl command is not recognized. Therefore, define the 32-bit
+version of ASHMEM_GET_FILE_ID and handle it accordingly.
+
+While we're here, fix the ashmem-memfd handler so that it returns ENOTTY
+when an unknown ioctl command is used.
+
+Bug: 502308977
+Bug: 517150366
+Fixes: 80fcf382d1af ("ANDROID: Add ashmem ioctl to return a unique file identifier")
+Change-Id: I016b86218c43fa808215342eac85591cc037de9b
+Signed-off-by: Isaac J. Manjarres <isaacmanjarres@google.com>
+(cherry picked from commit 20bf5f5313ad005e56ef3b1f81ac4e24c93499dc)
+---
+ drivers/staging/android/ashmem.h  |  1 +
+ drivers/staging/android/ashmem.rs | 55 +++++++++++++++++++++++--------
+ rust/bindings/bindings_helper.h   |  1 +
+ rust/helpers/compat.c             | 10 ++++++
+ rust/helpers/helpers.c            |  1 +
+ 5 files changed, 55 insertions(+), 13 deletions(-)
+ create mode 100644 rust/helpers/compat.c
+
+diff --git a/drivers/staging/android/ashmem.h b/drivers/staging/android/ashmem.h
+index 373437f6a279..49f234c3584f 100644
+--- a/drivers/staging/android/ashmem.h
++++ b/drivers/staging/android/ashmem.h
+@@ -28,6 +28,7 @@ const gfp_t RUST_CONST_HELPER___GFP_IO = ___GFP_IO;
+ enum {
+ 	COMPAT_ASHMEM_SET_SIZE		=	_IOW(__ASHMEMIOC, 3, compat_size_t),
+ 	COMPAT_ASHMEM_SET_PROT_MASK	=	_IOW(__ASHMEMIOC, 5, unsigned int),
++	COMPAT_ASHMEM_GET_FILE_ID	=	_IOR(__ASHMEMIOC, 11, compat_uptr_t),
+ };
+ #endif
+ 
+diff --git a/drivers/staging/android/ashmem.rs b/drivers/staging/android/ashmem.rs
+index f6c66ac10df0..63b9c47fb926 100644
+--- a/drivers/staging/android/ashmem.rs
++++ b/drivers/staging/android/ashmem.rs
+@@ -79,6 +79,13 @@ fn shrinker_should_stop() -> bool {
+     NUM_PIN_IOCTLS_WAITING.load(Ordering::Relaxed) > 0
+ }
+ 
++#[cfg(CONFIG_COMPAT)]
++fn compat_writer(compat_user_ptr: u32, size: usize) -> UserSliceWriter {
++    // SAFETY: Caller guarantees that this is a valid pointer.
++    let user_ptr = unsafe { bindings::compat_ptr(compat_user_ptr) };
++    UserSlice::new(user_ptr as usize, size).writer()
++}
++
+ module! {
+     type: AshmemModule,
+     name: "ashmem",
+@@ -277,6 +284,9 @@ fn compat_ioctl(me: Pin<&Ashmem>, file: &File, compat_cmd: u32, arg: usize) -> R
+         let cmd = match compat_cmd {
+             bindings::COMPAT_ASHMEM_SET_SIZE => bindings::ASHMEM_SET_SIZE,
+             bindings::COMPAT_ASHMEM_SET_PROT_MASK => bindings::ASHMEM_SET_PROT_MASK,
++            bindings::COMPAT_ASHMEM_GET_FILE_ID => {
++                return me.compat_get_file_id(compat_writer(arg as u32, _IOC_SIZE(compat_cmd)))
++            }
+             _ => compat_cmd,
+         };
+         Self::ioctl(me, file, cmd, arg)
+@@ -374,18 +384,27 @@ fn get_prot_mask(&self) -> Result<isize> {
+         Ok(self.inner.lock().prot_mask as isize)
+     }
+ 
+-    fn get_file_id(&self, mut writer: UserSliceWriter) -> Result<isize> {
+-        let ino = {
+-            let asma = self.inner.lock();
+-            let Some(file) = asma.file.as_ref() else {
+-                return Err(EINVAL);
+-            };
+-            file.inode_ino()
++    fn __get_file_id(&self) -> Result<usize> {
++        let asma = self.inner.lock();
++        let Some(file) = asma.file.as_ref() else {
++            return Err(EINVAL);
+         };
++        Ok(file.inode_ino())
++    }
++
++    fn get_file_id(&self, mut writer: UserSliceWriter) -> Result<isize> {
++        let ino = self.__get_file_id()?;
+         writer.write(&ino)?;
+         Ok(0)
+     }
+ 
++    #[cfg(CONFIG_COMPAT)]
++    fn compat_get_file_id(&self, mut writer: UserSliceWriter) -> Result<isize> {
++        let ino = self.__get_file_id()?;
++        writer.write(&(ino as u32))?;
++        Ok(0)
++    }
++
+     fn pin_unpin(&self, cmd: u32, mut reader: UserSliceReader) -> Result<isize> {
+         let (offset, cmd_len) = {
+             #[allow(dead_code)] // spurious warning because it is never explicitly constructed
+@@ -505,18 +524,28 @@ impl AshmemInner {
+ 
+ #[no_mangle]
+ unsafe extern "C" fn ashmem_memfd_ioctl(file: *mut bindings::file, cmd: u32, arg: usize) -> isize {
++    // SAFETY:
++    // * The file is valid for the duration of this call.
++    // * There is no active fdget_pos region on the file on this thread.
++    let file = unsafe { File::from_raw_file(file) };
++
+     #[cfg(CONFIG_COMPAT)]
+     let cmd = match cmd {
+         bindings::COMPAT_ASHMEM_SET_SIZE => bindings::ASHMEM_SET_SIZE,
+         bindings::COMPAT_ASHMEM_SET_PROT_MASK => bindings::ASHMEM_SET_PROT_MASK,
++        bindings::COMPAT_ASHMEM_GET_FILE_ID => {
++            // SAFETY: Accessing the ino is always okay.
++            let ino = unsafe { (*(*file.as_ptr()).f_inode).i_ino as usize };
++
++            let mut writer = compat_writer(arg as u32, _IOC_SIZE(cmd));
++            match writer.write(&(ino as u32)) {
++                Ok(_) => return 0,
++                Err(err) => return err.to_errno() as isize,
++            };
++        }
+         cmd => cmd,
+     };
+ 
+-    // SAFETY:
+-    // * The file is valid for the duration of this call.
+-    // * There is no active fdget_pos region on the file on this thread.
+-    let file = unsafe { File::from_raw_file(file) };
+-
+     match ashmem_memfd_ioctl_inner(file, cmd, arg) {
+         Ok(ret) => ret,
+         Err(err) => err.to_errno() as isize,
+@@ -638,7 +667,7 @@ unsafe fn get_seals(file: &File) -> Result<usize> {
+         // memfd is used, so we should never end up here.
+         bindings::ASHMEM_SET_NAME => Err(EINVAL),
+         bindings::ASHMEM_SET_SIZE => Err(EINVAL),
+-        _ => Err(EINVAL),
++        _ => Err(ENOTTY),
+     }
+ }
+ 
+diff --git a/rust/bindings/bindings_helper.h b/rust/bindings/bindings_helper.h
+index 476ddacd2f94..b04659ced3ec 100644
+--- a/rust/bindings/bindings_helper.h
++++ b/rust/bindings/bindings_helper.h
+@@ -11,6 +11,7 @@
+ #include <linux/blk-mq.h>
+ #include <linux/blk_types.h>
+ #include <linux/blkdev.h>
++#include <linux/compat.h>
+ #include <linux/cred.h>
+ #include <linux/errname.h>
+ #include <linux/ethtool.h>
+diff --git a/rust/helpers/compat.c b/rust/helpers/compat.c
+new file mode 100644
+index 000000000000..55bf2a8ad9b4
+--- /dev/null
++++ b/rust/helpers/compat.c
+@@ -0,0 +1,10 @@
++// SPDX-License-Identifier: GPL-2.0
++
++#include <linux/compat.h>
++
++#ifdef CONFIG_COMPAT
++__rust_helper void __user *rust_helper_compat_ptr(compat_uptr_t uptr)
++{
++	return compat_ptr(uptr);
++}
++#endif
+diff --git a/rust/helpers/helpers.c b/rust/helpers/helpers.c
+index 7ea3655b7245..2dd2866d84af 100644
+--- a/rust/helpers/helpers.c
++++ b/rust/helpers/helpers.c
+@@ -45,6 +45,7 @@
+ #include "bug.c"
+ #include "build_assert.c"
+ #include "build_bug.c"
++#include "compat.c"
+ #include "cred.c"
+ #include "err.c"
+ #include "fs.c"
+-- 
+2.50.1
+

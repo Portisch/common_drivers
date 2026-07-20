@@ -1,7 +1,7 @@
 From d8158c94ce24a074557ef628d94a17432204827a Mon Sep 17 00:00:00 2001
 From: Alice Ryhl <aliceryhl@google.com>
 Date: Tue, 31 Mar 2026 12:09:29 +0000
-Subject: [PATCH 61/63] FROMLIST: rust: kasan: add support for Software
+Subject: [PATCH 061/223] FROMLIST: rust: kasan: add support for Software
  Tag-Based KASAN
 
 This adds support for Software Tag-Based KASAN (KASAN_SW_TAGS) when

@@ -1,0 +1,138 @@
+From 670a0d3bed90ef08b14fce01d1bd7c2a48d61d1f Mon Sep 17 00:00:00 2001
+From: Josh Poimboeuf <jpoimboe@kernel.org>
+Date: Wed, 17 Sep 2025 09:03:10 -0700
+Subject: [PATCH 145/223] BACKPORT: vmlinux.lds: Unify TEXT_MAIN, DATA_MAIN,
+ and related macros
+
+TEXT_MAIN, DATA_MAIN and friends are defined differently depending on
+whether certain config options enable -ffunction-sections and/or
+-fdata-sections.
+
+There's no technical reason for that beyond voodoo coding.  Keeping the
+separate implementations adds unnecessary complexity, fragments the
+logic, and increases the risk of subtle bugs.
+
+Unify the macros by using the same input section patterns across all
+configs.
+
+This is a prerequisite for the upcoming livepatch klp-build tooling
+which will manually enable -ffunction-sections and -fdata-sections via
+KCFLAGS.
+
+[resolved merge conflicts in include/asm-generic/vmlinux.lds.h and
+ scripts/module.lds.S]
+
+Cc: Heiko Carstens <hca@linux.ibm.com>
+Cc: Vasily Gorbik <gor@linux.ibm.com>
+Cc: Alexander Gordeev <agordeev@linux.ibm.com>
+Acked-by: Petr Mladek <pmladek@suse.com>
+Tested-by: Joe Lawrence <joe.lawrence@redhat.com>
+Signed-off-by: Josh Poimboeuf <jpoimboe@kernel.org>
+
+Bug: 497941020
+Bug: 512403003
+Test: tools/bazel build //common:kernel_x86_64 --kasan
+Change-Id: Ieb4e58aa28b929d4a899e5ed218e5a4949df2c3d
+(cherry picked from commit 1ba9f8979426590367406c70c1c821f5b943f993)
+Signed-off-by: Giuliano Procida <gprocida@google.com>
+Signed-off-by: Srinivasarao Pathipati <c_spathi@qti.qualcomm.com>
+---
+ include/asm-generic/vmlinux.lds.h | 40 ++++++++++---------------------
+ scripts/module.lds.S              |  8 +------
+ 2 files changed, 13 insertions(+), 35 deletions(-)
+
+diff --git a/include/asm-generic/vmlinux.lds.h b/include/asm-generic/vmlinux.lds.h
+index 21fe0efb5867..f8079801b2d0 100644
+--- a/include/asm-generic/vmlinux.lds.h
++++ b/include/asm-generic/vmlinux.lds.h
+@@ -87,39 +87,24 @@
+ #define ALIGN_FUNCTION()  . = ALIGN(CONFIG_FUNCTION_ALIGNMENT)
+ 
+ /*
+- * LD_DEAD_CODE_DATA_ELIMINATION option enables -fdata-sections, which
+- * generates .data.identifier sections, which need to be pulled in with
+- * .data. We don't want to pull in .data..other sections, which Linux
+- * has defined. Same for text and bss.
++ * Support -ffunction-sections by matching .text and .text.*,
++ * but exclude '.text..*'.
+  *
+- * With LTO_CLANG, the linker also splits sections by default, so we need
+- * these macros to combine the sections during the final link.
+- *
+- * With AUTOFDO_CLANG, by default, the linker splits text sections and
+- * regroups functions into subsections.
+- *
+- * RODATA_MAIN is not used because existing code already defines .rodata.x
+- * sections to be brought in with rodata.
++ * Special .text.* sections that are typically grouped separately, such as
++ * .text.unlikely or .text.hot, must be matched explicitly before using
++ * TEXT_MAIN.
+  */
+-#if defined(CONFIG_LD_DEAD_CODE_DATA_ELIMINATION) || defined(CONFIG_LTO_CLANG) || \
+-defined(CONFIG_AUTOFDO_CLANG)
+ #define TEXT_MAIN .text .text.[0-9a-zA-Z_]*
+-#else
+-#define TEXT_MAIN .text
+-#endif
+-#if defined(CONFIG_LD_DEAD_CODE_DATA_ELIMINATION) || defined(CONFIG_LTO_CLANG)
++
++/*
++ * Support -fdata-sections by matching .data, .data.*, and others,
++ * but exclude '.data..*'.
++ */
+ #define DATA_MAIN .data .data.[0-9a-zA-Z_]* .data.rel.* .data..L* .data..compoundliteral* .data.$__unnamed_* .data.$L*
+ #define SDATA_MAIN .sdata .sdata.[0-9a-zA-Z_]*
+ #define RODATA_MAIN .rodata .rodata.[0-9a-zA-Z_]* .rodata..L*
+ #define BSS_MAIN .bss .bss.[0-9a-zA-Z_]* .bss..L* .bss..compoundliteral*
+ #define SBSS_MAIN .sbss .sbss.[0-9a-zA-Z_]*
+-#else
+-#define DATA_MAIN .data .data.rel .data.rel.local
+-#define SDATA_MAIN .sdata
+-#define RODATA_MAIN .rodata
+-#define BSS_MAIN .bss
+-#define SBSS_MAIN .sbss
+-#endif
+ 
+ /*
+  * GCC 4.5 and later have a 32 bytes section alignment for structures.
+@@ -577,9 +562,8 @@ defined(CONFIG_AUTOFDO_CLANG)
+  * during second ld run in second ld pass when generating System.map
+  *
+  * TEXT_MAIN here will match symbols with a fixed pattern (for example,
+- * .text.hot or .text.unlikely) if dead code elimination or
+- * function-section is enabled. Match these symbols first before
+- * TEXT_MAIN to ensure they are grouped together.
++ * .text.hot or .text.unlikely).  Match those before TEXT_MAIN to ensure
++ * they get grouped together.
+  *
+  * Also placing .text.hot section at the beginning of a page, this
+  * would help the TLB performance.
+diff --git a/scripts/module.lds.S b/scripts/module.lds.S
+index d1d0f56c3c6d..1221b33f2f5e 100644
+--- a/scripts/module.lds.S
++++ b/scripts/module.lds.S
+@@ -65,12 +65,6 @@ SECTIONS {
+ 	}
+ #endif
+ 
+-#ifdef CONFIG_LTO_CLANG
+-	/*
+-	 * With CONFIG_LTO_CLANG, LLD always enables -fdata-sections and
+-	 * -ffunction-sections, which increases the size of the final module.
+-	 * Merge the split sections in the final binary.
+-	 */
+ 	.bss : {
+ 		*(.bss .bss.[0-9a-zA-Z_]*)
+ 		*(.bss..L*)
+@@ -94,7 +88,7 @@ SECTIONS {
+ 		*(.text.._end)
+ 		*(.text.._fips140_unchecked)
+ 	}
+-#endif
++
+ 	MOD_SEPARATE_CODETAG_SECTIONS()
+ }
+ 
+-- 
+2.50.1
+

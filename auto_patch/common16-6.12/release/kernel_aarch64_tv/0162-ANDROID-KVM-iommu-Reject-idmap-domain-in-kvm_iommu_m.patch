@@ -1,0 +1,36 @@
+From 8600aade32df873134e835dd5bcf662c012b47aa Mon Sep 17 00:00:00 2001
+From: Daniel Mentz <danielmentz@google.com>
+Date: Fri, 22 May 2026 22:14:38 +0000
+Subject: [PATCH 162/223] ANDROID: KVM: iommu: Reject idmap domain in
+ kvm_iommu_map_sg
+
+The identity mapping domain is a special domain and should not be the
+target of map_sg operations. Any attempt to map into this domain should
+be rejected.
+
+Bug: 515840675
+Bug: 516816171
+Fixes: ddb4101bc0ab ("ANDROID: KVM: iommu: Restrict access KVM_IOMMU_DOMAIN_IDMAP_ID")
+Change-Id: I7238236c1fa54461e611625e961c604c3d31fb18
+Signed-off-by: Daniel Mentz <danielmentz@google.com>
+---
+ arch/arm64/kvm/hyp/nvhe/iommu/iommu.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/arch/arm64/kvm/hyp/nvhe/iommu/iommu.c b/arch/arm64/kvm/hyp/nvhe/iommu/iommu.c
+index 883bd81bf83a..b5f6e94fea65 100644
+--- a/arch/arm64/kvm/hyp/nvhe/iommu/iommu.c
++++ b/arch/arm64/kvm/hyp/nvhe/iommu/iommu.c
+@@ -966,6 +966,9 @@ size_t kvm_iommu_map_sg(pkvm_handle_t domain_id, unsigned long iova, struct kvm_
+ 	if (prot & ~IOMMU_PROT_MASK)
+ 		return 0;
+ 
++	if (domain_id == KVM_IOMMU_DOMAIN_IDMAP_ID)
++		return 0;
++
+ 	domain = handle_to_domain(domain_id);
+ 	if (!domain || domain_get(domain))
+ 		return 0;
+-- 
+2.50.1
+

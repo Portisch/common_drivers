@@ -1,7 +1,7 @@
 From 884f489d5829afc8441c91d71c09cc71dc97f322 Mon Sep 17 00:00:00 2001
 From: Badhri Jagan Sridharan <badhri@google.com>
 Date: Mon, 16 Mar 2026 14:28:24 +0000
-Subject: [PATCH 03/63] ANDROID: ABI: Update pixel symbol list
+Subject: [PATCH 003/223] ANDROID: ABI: Update pixel symbol list
 
 15 function symbol(s) added
   'int __traceiter_android_vh_typec_tcpm_log(void*, const char*, bool*)'

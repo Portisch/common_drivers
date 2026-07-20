@@ -1,0 +1,199 @@
+From 3986762b85e813308e6573f7a5303dff80f786ef Mon Sep 17 00:00:00 2001
+From: Kim Mankyum <mankyum.kim@samsung.com>
+Date: Wed, 6 May 2026 12:13:45 +0900
+Subject: [PATCH 146/223] ANDROID: virt: halla: Fix resource leaks, deadlock,
+ and mm_struct bugs
+
+Fix four bugs in the halla hypervisor driver:
+
+1. mm_struct use-after-free: hvm->mm was assigned from current->mm without
+   mmgrab(), so the mm_struct could be freed when the creating process exits
+   while the VM is still alive. Fix by calling mmgrab()/mmdrop() around the
+   lifetime of the hvm struct.
+
+2. Wrong address space in pin_one_page(): pin_user_pages() was called with
+   current->mm, but the userspace addresses stored in memslots are relative
+   to the mm of the process that created the VM. Fix by using vm->mm instead.
+
+3. Kernel memory leak in hvm_vm_ioctl_create_device(): free_pages_exact()
+   was called with size 0, causing PAGE_ALIGN(0)=0 so the free loop never
+   executed. Fix by passing the correct sizes (attr_size and PAGE_SIZE).
+
+4. Deadlock in hvm_destroy_all_vms(): hvm_list_lock was held while calling
+   hvm_destroy_vm(), which also tries to acquire hvm_list_lock internally.
+   Fix by splicing the list out under the lock first, then destroying VMs
+   without holding the lock.
+
+5. eventfd_ctx leak in hvm_assign_ioeventfd(): on kmalloc failure, the
+   already-acquired eventfd_ctx was returned without calling
+   eventfd_ctx_put(). Fix by adding the missing put on the error path.
+
+6. Resource leak in hvm_drv_remove(): hvm_vtimer_exit() and
+   hvm_drv_debug_exit() were not called, leaving percpu IRQs and debugfs
+   entries unreleased on driver removal. Fix by adding the missing cleanup
+   calls in reverse probe order.
+
+Bug: 512257301
+Bug: 512985866
+Change-Id: I5fe37a7eab91ea90a1f941d5b1b48f4d215a54b0
+Signed-off-by: Kim Mankyum <mankyum.kim@samsung.com>
+---
+ drivers/virt/halla/hvm_ioeventfd.c |  4 +++-
+ drivers/virt/halla/hvm_main.c      |  2 ++
+ drivers/virt/halla/hvm_mmu.c       |  2 +-
+ drivers/virt/halla/hvm_vm.c        | 25 ++++++++++++++++---------
+ 4 files changed, 22 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/virt/halla/hvm_ioeventfd.c b/drivers/virt/halla/hvm_ioeventfd.c
+index 9d59e61b094f..ba63849222f2 100644
+--- a/drivers/virt/halla/hvm_ioeventfd.c
++++ b/drivers/virt/halla/hvm_ioeventfd.c
+@@ -145,8 +145,10 @@ static int hvm_assign_ioeventfd(struct hvm *hvm,
+ 		return PTR_ERR(evt_ctx);
+ 
+ 	evt = kmalloc(sizeof(*evt), GFP_KERNEL);
+-	if (!evt)
++	if (!evt) {
++		eventfd_ctx_put(evt_ctx);
+ 		return -ENOMEM;
++	}
+ 	*evt = (struct hvm_ioevent) {
+ 		.addr = args->addr,
+ 		.len = args->len,
+diff --git a/drivers/virt/halla/hvm_main.c b/drivers/virt/halla/hvm_main.c
+index b2d3cdb97490..012d6df2d9ff 100644
+--- a/drivers/virt/halla/hvm_main.c
++++ b/drivers/virt/halla/hvm_main.c
+@@ -133,6 +133,8 @@ static void hvm_drv_remove(struct platform_device *pdev)
+ {
+ 	hvm_drv_irqfd_exit();
+ 	hvm_destroy_all_vms();
++	hvm_drv_debug_exit();
++	hvm_vtimer_exit();
+ 	misc_deregister(&hvm_dev);
+ }
+ 
+diff --git a/drivers/virt/halla/hvm_mmu.c b/drivers/virt/halla/hvm_mmu.c
+index 017a3a770485..245e348f9c38 100644
+--- a/drivers/virt/halla/hvm_mmu.c
++++ b/drivers/virt/halla/hvm_mmu.c
+@@ -52,7 +52,7 @@ static int pin_one_page(struct hvm *vm, unsigned long hva, u64 gpa,
+ {
+ 	u32 flags = FOLL_HWPOISON | FOLL_LONGTERM | FOLL_WRITE;
+ 	struct hvm_pinned_page *ppage = NULL;
+-	struct mm_struct *mm = current->mm;
++	struct mm_struct *mm = vm->mm;
+ 	struct page *page = NULL;
+ 	int ret;
+ 
+diff --git a/drivers/virt/halla/hvm_vm.c b/drivers/virt/halla/hvm_vm.c
+index 57aeb2555aac..6393afa370ac 100644
+--- a/drivers/virt/halla/hvm_vm.c
++++ b/drivers/virt/halla/hvm_vm.c
+@@ -186,6 +186,7 @@ static int hvm_vm_ioctl_create_device(struct hvm *hvm, void __user *argp)
+ {
+ 	struct hvm_create_device *hvm_dev;
+ 	void *dev_data = NULL;
++	size_t attr_size = 0;
+ 	int ret;
+ 
+ 	hvm_dev = alloc_pages_exact(PAGE_SIZE, GFP_KERNEL);
+@@ -198,9 +199,10 @@ static int hvm_vm_ioctl_create_device(struct hvm *hvm, void __user *argp)
+ 	}
+ 
+ 	if (hvm_dev->attr_addr != 0 && hvm_dev->attr_size != 0) {
+-		size_t attr_size = hvm_dev->attr_size;
+ 		void __user *attr_addr = u64_to_user_ptr(hvm_dev->attr_addr);
+ 
++		attr_size = hvm_dev->attr_size;
++
+ 		/* Size of device specific data should not be over a page. */
+ 		if (attr_size > PAGE_SIZE) {
+ 			ret = -EINVAL;
+@@ -224,9 +226,9 @@ static int hvm_vm_ioctl_create_device(struct hvm *hvm, void __user *argp)
+ 			hvm->vm_id, virt_to_phys(hvm_dev), 0, 0);
+ err_free_dev_data:
+ 	if (dev_data)
+-		free_pages_exact(dev_data, 0);
++		free_pages_exact(dev_data, attr_size);
+ err_free_dev:
+-	free_pages_exact(hvm_dev, 0);
++	free_pages_exact(hvm_dev, PAGE_SIZE);
+ 	return ret;
+ }
+ 
+@@ -409,22 +411,21 @@ static void hvm_destroy_vm(struct hvm *hvm)
+ 		hvm_destroy_all_ppage(hvm);
+ 	}
+ 
++	mmdrop(hvm->mm);
+ 	kfree(hvm);
+ }
+ 
+ void hvm_destroy_all_vms(void)
+ {
+ 	struct hvm *hvm, *tmp;
++	LIST_HEAD(vms_to_destroy);
+ 
+ 	mutex_lock(&hvm_list_lock);
+-	if (list_empty(&hvm_list))
+-		goto out;
++	list_splice_init(&hvm_list, &vms_to_destroy);
++	mutex_unlock(&hvm_list_lock);
+ 
+-	list_for_each_entry_safe(hvm, tmp, &hvm_list, vm_list)
++	list_for_each_entry_safe(hvm, tmp, &vms_to_destroy, vm_list)
+ 		hvm_destroy_vm(hvm);
+-
+-out:
+-	mutex_unlock(&hvm_list_lock);
+ }
+ 
+ int hvm_check_extension(struct hvm *hvm, u64 cap, void __user *argp)
+@@ -592,6 +593,7 @@ int hvm_dev_ioctl_create_vm(unsigned long vm_type)
+ 	}
+ 
+ 	hvm->vm_id = ret;
++	mmgrab(current->mm);
+ 	hvm->mm = current->mm;
+ 	mutex_init(&hvm->lock);
+ 	mutex_init(&hvm->mem_lock);
+@@ -599,30 +601,35 @@ int hvm_dev_ioctl_create_vm(unsigned long vm_type)
+ 
+ 	ret = hvm_vm_irqfd_init(hvm);
+ 	if (ret) {
++		mmdrop(hvm->mm);
+ 		kfree(hvm);
+ 		return ret;
+ 	}
+ 
+ 	ret = hvm_init_ioeventfd(hvm);
+ 	if (ret) {
++		mmdrop(hvm->mm);
+ 		kfree(hvm);
+ 		return ret;
+ 	}
+ 
+ 	ret = hvm_init_vm_stage2_mmu(hvm);
+ 	if (ret) {
++		mmdrop(hvm->mm);
+ 		kfree(hvm);
+ 		return ret;
+ 	}
+ 
+ 	ret = hvm_create_vm_debugfs(hvm);
+ 	if (ret) {
++		mmdrop(hvm->mm);
+ 		kfree(hvm);
+ 		return ret;
+ 	}
+ 
+ 	ret = hvm_arch_drv_init(hvm);
+ 	if (ret) {
++		mmdrop(hvm->mm);
+ 		kfree(hvm);
+ 		return ret;
+ 	}
+-- 
+2.50.1
+

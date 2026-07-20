@@ -1,7 +1,7 @@
 From 1dc43109f4c4152a2312b8012239933e2f5d0ad0 Mon Sep 17 00:00:00 2001
 From: Gary Guo <gary@garyguo.net>
 Date: Tue, 3 Feb 2026 11:34:10 +0000
-Subject: [PATCH 47/63] BACKPORT: FROMLIST: build: rust: provide an option to
+Subject: [PATCH 047/223] BACKPORT: FROMLIST: build: rust: provide an option to
  inline C helpers into Rust
 
 A new experimental Kconfig option, `RUST_INLINE_HELPERS` is added to

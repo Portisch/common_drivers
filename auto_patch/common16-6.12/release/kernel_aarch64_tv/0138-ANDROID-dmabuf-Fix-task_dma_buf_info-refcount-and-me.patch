@@ -1,0 +1,71 @@
+From 5d2735b082b698444611c9114e672e1fea0f6a1d Mon Sep 17 00:00:00 2001
+From: Sumanth Mothe <summothe@amd.com>
+Date: Mon, 6 Apr 2026 10:48:07 +0530
+Subject: [PATCH 138/223] ANDROID: dmabuf: Fix task_dma_buf_info refcount and
+ memory leaks
+
+This commit addresses two severe memory and reference count leaks inside
+the Android-specific per-task dmabuf accounting mechanism:
+
+1. copy_dmabuf_info() refcount leak: During full-sharing thread creation
+   (e.g., pthread_create via CLONE_VM | CLONE_FILES), the code erroneously
+   incremented the parent_dmabuf_info refcount for the shared mm and files
+   structures. Since shared structures only decrement their dmabuf_info
+   references once upon demise, this caused 2*(N-1) leaked refcounts for
+   a task with N threads, permanently preventing task_dma_buf_info kfree.
+   Additionally, this clears un-refcounted mm and files pointers during
+   early aborts for partial sharing.
+
+2. dma_buf_begin_new_exec() accounting leak: If dma_buf_account_task()
+   failed (e.g. -ENOMEM) during exec, the fd scanning loop blindly fell
+   through. The buffer was then stripped of its old accounting tracking
+   without rolling back, causing a silent RSS tracking loss.
+
+Bug: 499834453
+Fixes: 13beada2dac3 ("ANDROID: Don't use current pointer for per-process dmabuf accounting")
+Change-Id: Iaf95fb119f34c0e2b6b65200dea983aa5863fdad
+Signed-off-by: Sumanth Mothe <summothe@amd.com>
+Tested-by: T.J. Mercier <tjmercier@google.com>
+(cherry picked from commit 24ae7f071930e4395030fb1b2482a4e7741f3d34)
+Signed-off-by: Lee Jones <joneslee@google.com>
+---
+ drivers/dma-buf/dma-buf.c | 14 +++-----------
+ 1 file changed, 3 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/dma-buf/dma-buf.c b/drivers/dma-buf/dma-buf.c
+index 43bba96e1741..baeca92726fc 100644
+--- a/drivers/dma-buf/dma-buf.c
++++ b/drivers/dma-buf/dma-buf.c
+@@ -652,16 +652,6 @@ int copy_dmabuf_info(u64 clone_flags, struct task_struct *task)
+ 	if (share_vm && share_fs) {
+ 		/* task takes the parent_dmabuf_info with the elevated refcount. */
+ 		task->dmabuf_info = parent_dmabuf_info;
+-
+-		if (task->mm) {
+-			refcount_inc(&task->dmabuf_info->refcnt);
+-			task->mm->dmabuf_info = task->dmabuf_info;
+-		}
+-
+-		if (task->files) {
+-			refcount_inc(&task->dmabuf_info->refcnt);
+-			task->files->dmabuf_info = task->dmabuf_info;
+-		}
+ 		return 0;
+ 	}
+ 
+@@ -778,9 +768,11 @@ int dma_buf_begin_new_exec(struct files_struct *old_files)
+ 				continue;
+ 
+ 			err = __dma_buf_account_task(file->private_data, new_dmabuf_info, false);
+-			if (err)
++			if (err) {
+ 				pr_err("dmabuf accounting failed during begin_new_exec, err %d\n",
+ 				       err);
++				continue;
++			}
+ 
+ 			/*
+ 			 * No put_files_struct in this case, so buffers don't get closed and
+-- 
+2.50.1
+

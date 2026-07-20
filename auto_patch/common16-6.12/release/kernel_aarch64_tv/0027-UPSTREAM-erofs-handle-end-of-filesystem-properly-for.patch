@@ -1,8 +1,8 @@
 From c7953f9157261add9151aab61c59fcf1af2be1b0 Mon Sep 17 00:00:00 2001
 From: Gao Xiang <hsiangkao@linux.alibaba.com>
 Date: Fri, 30 Jan 2026 15:54:22 +0800
-Subject: [PATCH 27/63] UPSTREAM: erofs: handle end of filesystem properly for
- file-backed mounts
+Subject: [PATCH 027/223] UPSTREAM: erofs: handle end of filesystem properly
+ for file-backed mounts
 
 I/O requests beyond the end of the filesystem should be zeroed out,
 similar to loopback devices and that is what we expect.

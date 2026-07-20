@@ -1,0 +1,34 @@
+From 42adf90c1177f28abb0b2285fa9776a692e904e8 Mon Sep 17 00:00:00 2001
+From: Pierre Couillaud <pierre@broadcom.com>
+Date: Fri, 20 Mar 2026 07:57:23 -0700
+Subject: [PATCH 148/223] Reapply "ANDROID: FIXUP: PCI/pwrctrl: Create pwrctrl
+ devices only when CONFIG_PCI_PWRCTRL is enabled"
+
+This reverts commit 7dcc5717d7887031c95e715a95610197763f9814.
+
+Bug: 513283531
+Bug: 494543965
+Bug: 513342406
+Change-Id: I20dafcdb05c5be72a1e67c755e7ff4046a2ca6ef
+Signed-off-by: Pierre Couillaud <pierre@broadcom.com>
+(cherry picked from commit f6b78e7ce21061002d11cfa6aa090e865ebd3f2b)
+---
+ drivers/pci/probe.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
+index 61d2f12996d3..b73d8ff9b376 100644
+--- a/drivers/pci/probe.c
++++ b/drivers/pci/probe.c
+@@ -2455,7 +2455,7 @@ bool pci_bus_read_dev_vendor_id(struct pci_bus *bus, int devfn, u32 *l,
+ }
+ EXPORT_SYMBOL(pci_bus_read_dev_vendor_id);
+ 
+-#if IS_ENABLED(CONFIG_PCI_PWRCTRL)
++#if IS_ENABLED(CONFIG_PCI_PWRCTL)
+ static struct platform_device *pci_pwrctrl_create_device(struct pci_bus *bus, int devfn)
+ {
+ 	struct pci_host_bridge *host = pci_find_host_bridge(bus);
+-- 
+2.50.1
+

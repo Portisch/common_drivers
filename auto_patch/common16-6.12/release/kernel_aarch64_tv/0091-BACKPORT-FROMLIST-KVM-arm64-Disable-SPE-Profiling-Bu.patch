@@ -1,0 +1,156 @@
+From 13a0188e0086917f13cf9090d3781be53e716072 Mon Sep 17 00:00:00 2001
+From: Will Deacon <will@kernel.org>
+Date: Fri, 27 Feb 2026 21:21:34 +0000
+Subject: [PATCH 091/223] BACKPORT: FROMLIST: KVM: arm64: Disable SPE Profiling
+ Buffer when running in guest context
+
+The nVHE world-switch code relies on zeroing PMSCR_EL1 to disable
+profiling data generation in guest context when SPE is in use by the
+host.
+
+Unfortunately, this may leave PMBLIMITR_EL1.E set and consequently we
+can end up running in guest/hypervisor context with the Profiling Buffer
+enabled. The current "known issues" document for Rev M.a of the Arm ARM
+states that this can lead to speculative, out-of-context translations:
+
+  | 2.18 D23136:
+  |
+  | When the Profiling Buffer is enabled, profiling is not stopped, and
+  | Discard mode is not enabled, the Statistical Profiling Unit might
+  | cause speculative translations for the owning translation regime,
+  | including when the owning translation regime is out-of-context.
+
+In a similar fashion to TRBE, ensure that the Profiling Buffer is
+disabled during the nVHE world switch before we start messing with the
+stage-2 MMU and trap configuration.
+
+[tabba: Resolved conflict in arch/arm64/kvm/hyp/nvhe/debug-sr.c and
+switch.c caused by missing BRBE support and divergence in debug flags
+(DEBUG_STATE_SAVE_SPE/TRBE vs HAS_SPE/HAS_BRBE).]
+Bug: 473214797
+Link: https://lore.kernel.org/all/20260227212136.7660-3-will@kernel.org/
+Cc: Marc Zyngier <maz@kernel.org>
+Cc: Oliver Upton <oupton@kernel.org>
+Cc: James Clark <james.clark@linaro.org>
+Cc: Leo Yan <leo.yan@arm.com>
+Cc: Suzuki K Poulose <suzuki.poulose@arm.com>
+Cc: Fuad Tabba <tabba@google.com>
+Cc: Alexandru Elisei <alexandru.elisei@arm.com>
+Fixes: f85279b4bd48 ("arm64: KVM: Save/restore the host SPE state when entering/leaving a VM")
+Change-Id: Ie5c5a7fabb4dfc4f91ff1db694d5aaf44d9e2ac5
+Signed-off-by: Will Deacon <will@kernel.org>
+Signed-off-by: Fuad Tabba <tabba@google.com>
+(cherry picked from commit 60f05a50d42d5316bad4371928100da5710702a7)
+Bug: 504744760
+---
+ arch/arm64/include/asm/kvm_host.h  |  1 +
+ arch/arm64/kvm/hyp/nvhe/debug-sr.c | 31 ++++++++++++++++++------------
+ arch/arm64/kvm/hyp/nvhe/switch.c   |  3 +--
+ 3 files changed, 21 insertions(+), 14 deletions(-)
+
+diff --git a/arch/arm64/include/asm/kvm_host.h b/arch/arm64/include/asm/kvm_host.h
+index 5f9e48df247f..0d874a217069 100644
+--- a/arch/arm64/include/asm/kvm_host.h
++++ b/arch/arm64/include/asm/kvm_host.h
+@@ -687,6 +687,7 @@ struct kvm_host_data {
+ 		struct kvm_guest_debug_arch regs;
+ 		/* Statistical profiling extension */
+ 		u64 pmscr_el1;
++		u64 pmblimitr_el1;
+ 		/* Self-hosted trace */
+ 		u64 trfcr_el1;
+ 		u64 trblimitr_el1;
+diff --git a/arch/arm64/kvm/hyp/nvhe/debug-sr.c b/arch/arm64/kvm/hyp/nvhe/debug-sr.c
+index 09ffa8133e17..99479b11857a 100644
+--- a/arch/arm64/kvm/hyp/nvhe/debug-sr.c
++++ b/arch/arm64/kvm/hyp/nvhe/debug-sr.c
+@@ -14,20 +14,15 @@
+ #include <asm/kvm_hyp.h>
+ #include <asm/kvm_mmu.h>
+ 
+-static void __debug_save_spe(u64 *pmscr_el1)
++static void __debug_save_spe(u64 *pmscr_el1, u64 *pmblimitr_el1)
+ {
+-	u64 reg;
+-
+-	/* Clear pmscr in case of early return */
+-	*pmscr_el1 = 0;
+-
+ 	/*
+ 	 * At this point, we know that this CPU implements
+ 	 * SPE and is available to the host.
+ 	 * Check if the host is actually using it ?
+ 	 */
+-	reg = read_sysreg_s(SYS_PMBLIMITR_EL1);
+-	if (!(reg & BIT(PMBLIMITR_EL1_E_SHIFT)))
++	*pmblimitr_el1 = read_sysreg_s(SYS_PMBLIMITR_EL1);
++	if (!(*pmblimitr_el1 & BIT(PMBLIMITR_EL1_E_SHIFT)))
+ 		return;
+ 
+ 	/* Yes; save the control register and disable data generation */
+@@ -37,16 +32,25 @@ static void __debug_save_spe(u64 *pmscr_el1)
+ 
+ 	/* Now drain all buffered data to memory */
+ 	psb_csync();
++	dsb(nsh);
++
++	/* And disable the profiling buffer */
++	write_sysreg_s(0, SYS_PMBLIMITR_EL1);
++	isb();
+ }
+ 
+-static void __debug_restore_spe(u64 pmscr_el1)
++static void __debug_restore_spe(u64 pmscr_el1, u64 pmblimitr_el1)
+ {
+-	if (!pmscr_el1)
++	if (!(pmblimitr_el1 & BIT(PMBLIMITR_EL1_E_SHIFT)))
+ 		return;
+ 
+ 	/* The host page table is installed, but not yet synchronised */
+ 	isb();
+ 
++	/* Re-enable the profiling buffer. */
++	write_sysreg_s(pmblimitr_el1, SYS_PMBLIMITR_EL1);
++	isb();
++
+ 	/* Re-enable data generation */
+ 	write_sysreg_el1(pmscr_el1, SYS_PMSCR);
+ }
+@@ -124,7 +128,8 @@ void __debug_save_host_buffers_nvhe(struct kvm_vcpu *vcpu)
+ {
+ 	/* Disable and flush SPE data generation */
+ 	if (vcpu_get_flag(vcpu, DEBUG_STATE_SAVE_SPE))
+-		__debug_save_spe(host_data_ptr(host_debug_state.pmscr_el1));
++		__debug_save_spe(host_data_ptr(host_debug_state.pmscr_el1),
++				 host_data_ptr(host_debug_state.pmblimitr_el1));
+ 	/* Disable and flush Self-Hosted Trace generation */
+ 	if (vcpu_get_flag(vcpu, DEBUG_STATE_SAVE_TRBE))
+ 		__debug_save_trace(host_data_ptr(host_debug_state.trfcr_el1),
+@@ -139,7 +144,9 @@ void __debug_switch_to_guest(struct kvm_vcpu *vcpu)
+ void __debug_restore_host_buffers_nvhe(struct kvm_vcpu *vcpu)
+ {
+ 	if (vcpu_get_flag(vcpu, DEBUG_STATE_SAVE_SPE))
+-		__debug_restore_spe(*host_data_ptr(host_debug_state.pmscr_el1));
++		__debug_restore_spe(
++			*host_data_ptr(host_debug_state.pmscr_el1),
++			*host_data_ptr(host_debug_state.pmblimitr_el1));
+ 	if (vcpu_get_flag(vcpu, DEBUG_STATE_SAVE_TRBE))
+ 		__debug_restore_trace(*host_data_ptr(host_debug_state.trfcr_el1),
+ 				      *host_data_ptr(host_debug_state.trblimitr_el1));
+diff --git a/arch/arm64/kvm/hyp/nvhe/switch.c b/arch/arm64/kvm/hyp/nvhe/switch.c
+index eac413779548..3a7cb8291b9f 100644
+--- a/arch/arm64/kvm/hyp/nvhe/switch.c
++++ b/arch/arm64/kvm/hyp/nvhe/switch.c
+@@ -412,8 +412,7 @@ int __kvm_vcpu_run(struct kvm_vcpu *vcpu)
+ 	/*
+ 	 * We're about to restore some new MMU state. Make sure
+ 	 * ongoing page-table walks that have started before we
+-	 * trapped to EL2 have completed. This also synchronises the
+-	 * above disabling of SPE.
++	 * trapped to EL2 have completed.
+ 	 *
+ 	 * See DDI0487I.a D8.1.5 "Out-of-context translation regimes",
+ 	 * rule R_LFHQG and subsequent information statements.
+-- 
+2.50.1
+

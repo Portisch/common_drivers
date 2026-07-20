@@ -1,0 +1,124 @@
+From ca0f74e2762825481e3228e7d717a06eefaa8a3b Mon Sep 17 00:00:00 2001
+From: Bart Van Assche <bvanassche@acm.org>
+Date: Fri, 31 Oct 2025 13:39:23 -0700
+Subject: [PATCH 066/223] UPSTREAM: scsi: ufs: core: Rework
+ ufshcd_mcq_compl_pending_transfer()
+
+Replace a tag loop with blk_mq_tagset_busy_iter(). This patch prepares
+for removing the hba->lrb[] array.
+
+Reviewed-by: Avri Altman <avri.altman@sandisk.com>
+Signed-off-by: Bart Van Assche <bvanassche@acm.org>
+Link: https://patch.msgid.link/20251031204029.2883185-16-bvanassche@acm.org
+Signed-off-by: Martin K. Petersen <martin.petersen@oracle.com>
+(cherry picked from commit 63a5b959c854c33f280533eedd27bd3489e2b704)
+Bug: 498983195
+Bug: 500837664
+Change-Id: I23eefcee658b821d7ea1889753e77dd51f00bcac
+Signed-off-by: Bart Van Assche <bvanassche@google.com>
+(cherry picked from commit 3028163b91686becbf850f5d60059fd21477e536)
+---
+ drivers/ufs/core/ufshcd.c | 80 ++++++++++++++++++++++-----------------
+ 1 file changed, 46 insertions(+), 34 deletions(-)
+
+diff --git a/drivers/ufs/core/ufshcd.c b/drivers/ufs/core/ufshcd.c
+index 9ad9334c85df..fdc72255e289 100644
+--- a/drivers/ufs/core/ufshcd.c
++++ b/drivers/ufs/core/ufshcd.c
+@@ -5799,6 +5799,48 @@ static int ufshcd_poll(struct Scsi_Host *shost, unsigned int queue_num)
+ 	return completed_reqs != 0;
+ }
+ 
++static bool ufshcd_mcq_force_compl_one(struct request *rq, void *priv)
++{
++	struct scsi_cmnd *cmd = blk_mq_rq_to_pdu(rq);
++	struct scsi_device *sdev = rq->q->queuedata;
++	struct Scsi_Host *shost = sdev->host;
++	struct ufs_hba *hba = shost_priv(shost);
++	struct ufshcd_lrb *lrbp = &hba->lrb[rq->tag];
++	struct ufs_hw_queue *hwq = ufshcd_mcq_req_to_hwq(hba, rq);
++
++	if (!hwq)
++		return true;
++
++	ufshcd_mcq_compl_all_cqes_lock(hba, hwq);
++
++	/*
++	 * For those cmds of which the cqes are not present in the cq, complete
++	 * them explicitly.
++	 */
++	scoped_guard(spinlock_irqsave, &hwq->cq_lock) {
++		if (!test_bit(SCMD_STATE_COMPLETE, &cmd->state)) {
++			set_host_byte(cmd, DID_REQUEUE);
++			ufshcd_release_scsi_cmd(hba, lrbp);
++			scsi_done(cmd);
++		}
++	}
++
++	return true;
++}
++
++static bool ufshcd_mcq_compl_one(struct request *rq, void *priv)
++{
++	struct scsi_device *sdev = rq->q->queuedata;
++	struct Scsi_Host *shost = sdev->host;
++	struct ufs_hba *hba = shost_priv(shost);
++	struct ufs_hw_queue *hwq = ufshcd_mcq_req_to_hwq(hba, rq);
++
++	if (hwq)
++		ufshcd_mcq_poll_cqe_lock(hba, hwq);
++
++	return true;
++}
++
+ /**
+  * ufshcd_mcq_compl_pending_transfer - MCQ mode function. It is
+  * invoked from the error handler context or ufshcd_host_reset_and_restore()
+@@ -5813,40 +5855,10 @@ static int ufshcd_poll(struct Scsi_Host *shost, unsigned int queue_num)
+ static void ufshcd_mcq_compl_pending_transfer(struct ufs_hba *hba,
+ 					      bool force_compl)
+ {
+-	struct ufs_hw_queue *hwq;
+-	struct ufshcd_lrb *lrbp;
+-	struct scsi_cmnd *cmd;
+-	unsigned long flags;
+-	int tag;
+-
+-	for (tag = 0; tag < hba->nutrs; tag++) {
+-		lrbp = &hba->lrb[tag];
+-		cmd = lrbp->cmd;
+-		if (!ufshcd_cmd_inflight(cmd) ||
+-		    test_bit(SCMD_STATE_COMPLETE, &cmd->state))
+-			continue;
+-
+-		hwq = ufshcd_mcq_req_to_hwq(hba, scsi_cmd_to_rq(cmd));
+-		if (!hwq)
+-			continue;
+-
+-		if (force_compl) {
+-			ufshcd_mcq_compl_all_cqes_lock(hba, hwq);
+-			/*
+-			 * For those cmds of which the cqes are not present
+-			 * in the cq, complete them explicitly.
+-			 */
+-			spin_lock_irqsave(&hwq->cq_lock, flags);
+-			if (cmd && !test_bit(SCMD_STATE_COMPLETE, &cmd->state)) {
+-				set_host_byte(cmd, DID_REQUEUE);
+-				ufshcd_release_scsi_cmd(hba, lrbp);
+-				scsi_done(cmd);
+-			}
+-			spin_unlock_irqrestore(&hwq->cq_lock, flags);
+-		} else {
+-			ufshcd_mcq_poll_cqe_lock(hba, hwq);
+-		}
+-	}
++	blk_mq_tagset_busy_iter(&hba->host->tag_set,
++				force_compl ? ufshcd_mcq_force_compl_one :
++					      ufshcd_mcq_compl_one,
++				NULL);
+ }
+ 
+ /**
+-- 
+2.50.1
+

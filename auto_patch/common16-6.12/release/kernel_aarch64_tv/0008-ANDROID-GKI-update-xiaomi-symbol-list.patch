@@ -1,7 +1,7 @@
 From d723677b15e5e606306ede9f69e2828939b48e9c Mon Sep 17 00:00:00 2001
 From: shuai Wang <wangshuai12@xiaomi.corp-partner.google.com>
 Date: Thu, 12 Mar 2026 21:06:30 +0800
-Subject: [PATCH 08/63] ANDROID: GKI: update xiaomi symbol list
+Subject: [PATCH 008/223] ANDROID: GKI: update xiaomi symbol list
 
 3 function symbol(s) added
   'u64 __blkg_prfill_u64(struct seq_file*, struct blkg_policy_data*, u64)'

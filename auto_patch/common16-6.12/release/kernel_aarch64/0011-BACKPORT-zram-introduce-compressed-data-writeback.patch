@@ -1,7 +1,7 @@
 From db496fab3252f77cb39287ebc2ab2aeedaaf0a08 Mon Sep 17 00:00:00 2001
 From: Richard Chang <richardycc@google.com>
 Date: Mon, 1 Dec 2025 18:47:48 +0900
-Subject: [PATCH 11/63] BACKPORT: zram: introduce compressed data writeback
+Subject: [PATCH 011/223] BACKPORT: zram: introduce compressed data writeback
 
 Patch series "zram: introduce compressed data writeback", v2.
 

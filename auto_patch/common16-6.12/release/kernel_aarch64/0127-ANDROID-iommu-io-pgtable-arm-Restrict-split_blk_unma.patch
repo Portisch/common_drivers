@@ -1,0 +1,37 @@
+From dbae91ffc7a623ecb84e5960b2394d883bc8179b Mon Sep 17 00:00:00 2001
+From: Mostafa Saleh <smostafa@google.com>
+Date: Thu, 16 Apr 2026 11:53:23 +0000
+Subject: [PATCH 127/223] ANDROID: iommu/io-pgtable-arm: Restrict
+ split_blk_unmap to idmap
+
+arm_lpae_split_blk_unmap() should only be used by idmap domains and not
+translating ones.
+
+Otherwise, the TLB invalidation sequence needs to be changed to maintain
+the refcounts of pv domains.
+
+Bug: 503379315
+Change-Id: I4fad1d836133819674d55a8f9c37059e7d9a75e4
+Signed-off-by: Mostafa Saleh <smostafa@google.com>
+(cherry picked from commit 82cd807f41d89d5cf2b4c3ac7affdb91188baea7)
+Signed-off-by: Lee Jones <joneslee@google.com>
+---
+ drivers/iommu/io-pgtable-arm-common.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/iommu/io-pgtable-arm-common.c b/drivers/iommu/io-pgtable-arm-common.c
+index c34148616ccc..4e52c49ebc2d 100644
+--- a/drivers/iommu/io-pgtable-arm-common.c
++++ b/drivers/iommu/io-pgtable-arm-common.c
+@@ -382,7 +382,7 @@ static size_t arm_lpae_split_blk_unmap(struct arm_lpae_io_pgtable *data,
+ 	size_t tablesz = ARM_LPAE_GRANULE(data);
+ 	int ptes_per_table = ARM_LPAE_PTES_PER_TABLE(data);
+ 
+-	if (WARN_ON(lvl == ARM_LPAE_MAX_LEVELS))
++	if (WARN_ON(lvl == ARM_LPAE_MAX_LEVELS) || !data->idmapped)
+ 		return 0;
+ 
+ 	tablep = __arm_lpae_alloc_pages(tablesz, GFP_ATOMIC, cfg, data->iop.cookie);
+-- 
+2.50.1
+

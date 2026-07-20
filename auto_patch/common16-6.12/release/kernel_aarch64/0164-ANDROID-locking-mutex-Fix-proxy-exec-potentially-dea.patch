@@ -1,0 +1,76 @@
+From 7e0a7ea9148a1e51d8ad99e9e12f1e6f55aafce3 Mon Sep 17 00:00:00 2001
+From: John Stultz <jstultz@google.com>
+Date: Sat, 25 Apr 2026 01:46:12 +0000
+Subject: [PATCH 164/223] ANDROID: locking: mutex: Fix proxy-exec potentially
+ deactivating tasks marked TASK_RUNNING
+
+Vineeth found came up with a test driver that could trip up
+workqueue stalls. After fixing one issue this test found,
+Vineeth reported the test was still failing.
+
+Greatly simplified, a task that tries to take a mutex already
+owned by another task that is sleeping, can hit a edge case in
+the mutex_lock_common() case.
+
+If the task fails to get the lock, calls into schedule, but gets
+a spurious wakeup, it will find that it is first waiter, and
+go into the mutex_optimistic_spin() logic. Though before calling
+mutex_optimistic_spin(), we clear task blocked_on state, since
+mutex_optimistic_spin() may call schedule() if need_resched() is
+set.
+
+After mutex_optimistic_spin() fails, we set blocked_on again,
+restart the main mutex loop, try to take the lock and call into
+schedule_preempt_disabled().
+
+From there, with proxy-execution, we'll see the task is
+blocked_on, follow the chain, see the owner is sleeping and
+dequeue the waiting task from the runqueue.
+
+This all sounds fine and reasonable.  But what I had missed is
+that in mutex_optimistic_spin(), not only do we call schedule()
+but we set TASK_RUNNABLE right before doing so.
+
+This is ok for that invocation of schedule(). But when we come
+back we re-set the blocked_on we had just cleared, but we do not
+re-set the task state to TASK_INTERRUPTIBLE/UNINTERRUPTIBLE.
+
+This means we have a task that is blocked_on & TASK_RUNNABLE,
+so when the proxy execution code dequeues the task, we are
+in trouble since future wakeups will be shortcut by the
+ttwu_state_match() check.
+
+Thus, to avoid this, after mutex_optimistic_spin(), set the task
+state back when we set blocked_on.
+
+Many many thanks again to Vineeth for his very useful testing
+driver that uncovered this long hidden bug, that I hadn't
+tripped in all my testing! Very impressed with the problems he's
+uncovered!
+
+Reported-by: Vineeth Pillai <vineethrp@google.com>
+Signed-off-by: John Stultz <jstultz@google.com>
+Change-Id: Ib5b11433d50f3e68a89e1e6f9f9b9107d1445ba8
+Bug: 516716063
+Bug: 505439420
+(cherry picked from commit b2888c0f08d0c6a1330dde8731c029e10221eaac)
+---
+ kernel/locking/mutex.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/kernel/locking/mutex.c b/kernel/locking/mutex.c
+index d8b8ff44627f..6c155ac03652 100644
+--- a/kernel/locking/mutex.c
++++ b/kernel/locking/mutex.c
+@@ -741,6 +741,8 @@ __mutex_lock_common(struct mutex *lock, unsigned int state, unsigned int subclas
+ 			raw_spin_lock_irqsave(&lock->wait_lock, flags);
+ 			raw_spin_lock(&current->blocked_lock);
+ 			current->blocked_on_state = BO_BLOCKED;
++			set_current_state(state);
++
+ 			if (opt_acquired)
+ 				break;
+ 			trace_contention_begin(lock, LCB_F_MUTEX);
+-- 
+2.50.1
+

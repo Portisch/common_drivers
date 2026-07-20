@@ -1,0 +1,73 @@
+From 60c1cba846779fdd52b996f05d4864b3dba0a2b9 Mon Sep 17 00:00:00 2001
+From: Usama Arif <usamaarif642@gmail.com>
+Date: Wed, 21 Aug 2024 20:26:07 +0100
+Subject: [PATCH 087/223] ANDROID: mm: add vendorhook bypass skip_cma
+
+The patch "mm: skip CMA pages when they are not available" was
+reverted upstream because if might cause livelocks [1] and high
+memory pressure for extended periods of time [2] but it can also
+optimize allocations. Android backport of the original patch is
+still in place and revert is not applied.
+
+To conditionally bypass this logic we introduce a vendor hook.
+
+[1] https://lore.kernel.org/all/CAOUHufbkhMZYz20aM_3rHZ3OcK4m2puji2FGpUpn_-DevGk3Kg@mail.gmail.com/
+[2] https://lore.kernel.org/all/ZrssOrcJIDy8hacI@gmail.com/
+
+Bug: 494178180
+Bug: 494397605
+Bug: 503656770
+Change-Id: I800718a82fc457459e4f631a9f6158bd01617f3e
+Signed-off-by: wangtao12 <wangtao12@oppo.com>
+Signed-off-by: Usama Arif <usamaarif642@gmail.com>
+(cherry picked from commit c52b4c601efe4303dc166fd5a736b966b3d71d8d)
+(cherry picked from commit 1bc86634d886d4619a6bb23b07b37539d506f289)
+---
+ drivers/android/vendor_hooks.c | 1 +
+ include/trace/hooks/vmscan.h   | 3 +++
+ mm/vmscan.c                    | 6 ++++++
+ 3 files changed, 10 insertions(+)
+
+diff --git a/drivers/android/vendor_hooks.c b/drivers/android/vendor_hooks.c
+index 5c07791c1989..08bbe43554a1 100644
+--- a/drivers/android/vendor_hooks.c
++++ b/drivers/android/vendor_hooks.c
+@@ -736,3 +736,4 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_lock_delay_schedule);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_lock_task_fork);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_lock_task_exit);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_read_swap_cache_async_timeout);
++EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_skip_cma);
+diff --git a/include/trace/hooks/vmscan.h b/include/trace/hooks/vmscan.h
+index 9adf60fb0d05..bc715dc0440e 100644
+--- a/include/trace/hooks/vmscan.h
++++ b/include/trace/hooks/vmscan.h
+@@ -172,6 +172,9 @@ DECLARE_HOOK(android_vh_mm_customize_reclaim_idx,
+ DECLARE_HOOK(android_vh_may_unmap_folio,
+ 	TP_PROTO(enum lru_list lru, struct scan_control *sc, struct folio *folio, bool *bypass),
+ 	TP_ARGS(lru, sc, folio, bypass));
++DECLARE_HOOK(android_vh_skip_cma,
++	TP_PROTO(struct scan_control *sc, bool *bypass),
++	TP_ARGS(sc, bypass));
+ 
+ #endif /* _TRACE_HOOK_VMSCAN_H */
+ /* This part must be outside protection */
+diff --git a/mm/vmscan.c b/mm/vmscan.c
+index bdad219d02b0..229bd0fa9c66 100644
+--- a/mm/vmscan.c
++++ b/mm/vmscan.c
+@@ -1740,6 +1740,12 @@ static __always_inline void update_lru_sizes(struct lruvec *lruvec,
+  */
+ static bool skip_cma(struct folio *folio, struct scan_control *sc)
+ {
++	bool bypass = false;
++
++	trace_android_vh_skip_cma(sc, &bypass);
++	if (bypass)
++		return false;
++
+ 	return !current_is_kswapd() &&
+ 			gfp_migratetype(sc->gfp_mask) != MIGRATE_MOVABLE &&
+ 			get_pageblock_migratetype(&folio->page) == MIGRATE_CMA;
+-- 
+2.50.1
+

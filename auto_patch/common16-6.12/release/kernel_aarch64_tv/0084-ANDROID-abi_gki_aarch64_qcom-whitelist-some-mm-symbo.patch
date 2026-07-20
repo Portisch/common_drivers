@@ -1,0 +1,114 @@
+From 5c9d9b3a51e8177128372a23390726f982715194 Mon Sep 17 00:00:00 2001
+From: Charan Teja Kalla <quic_charante@quicinc.com>
+Date: Thu, 31 Jul 2025 23:16:57 +0530
+Subject: [PATCH 084/223] ANDROID: abi_gki_aarch64_qcom: whitelist some mm
+ symbols
+
+Whitelist the below symbols:
+  vmap_pages_range_noflush
+  __vmap_pages_range_noflush
+
+INFO: 2 function symbol(s) added
+  'int __vmap_pages_range_noflush(unsigned long, unsigned long,
+pgprot_t, struct page**, unsigned
+int)'
+  'int vmap_pages_range_noflush(unsigned long, unsigned long, pgprot_t,
+struct page**, unsigned in
+t)'
+
+Bug: 435443840
+Bug: 503771689
+Change-Id: I3226a4b9e02b7b1b6c112aa0035626056ceeb2ea
+Signed-off-by: Charan Teja Kalla <quic_charante@quicinc.com>
+Signed-off-by: Ketan Kishore <ketan.kishore@oss.qualcomm.com>
+(cherry picked from commit 077d86b3b5579706ae444bdfa81e2112c6483aca)
+(cherry picked from commit 91e49117396d06326d151f97f382c6d93a267bea)
+---
+ gki/aarch64/abi.stg      | 29 +++++++++++++++++++++++++++++
+ gki/aarch64/symbols/qcom |  2 ++
+ 2 files changed, 31 insertions(+)
+
+diff --git a/gki/aarch64/abi.stg b/gki/aarch64/abi.stg
+index 0ca2b97ed42f..43963f27e32d 100644
+--- a/gki/aarch64/abi.stg
++++ b/gki/aarch64/abi.stg
+@@ -403334,6 +403334,15 @@ function {
+   parameter_id: 0x18bd6530
+   parameter_id: 0x2e5c720a
+ }
++function {
++  id: 0x91b76eb8
++  return_type_id: 0x6720d32f
++  parameter_id: 0x33756485
++  parameter_id: 0x33756485
++  parameter_id: 0x9cf21ab5
++  parameter_id: 0x0b30ee00
++  parameter_id: 0x4585663f
++}
+ function {
+   id: 0x91b78ec8
+   return_type_id: 0x6720d32f
+@@ -456009,6 +456018,15 @@ elf_symbol {
+   type_id: 0x598d73af
+   full_name: "__vmalloc_noprof"
+ }
++elf_symbol {
++  id: 0x08a0e250
++  name: "__vmap_pages_range_noflush"
++  is_defined: true
++  symbol_type: FUNCTION
++  crc: 0x8da8dff4
++  type_id: 0x91b76eb8
++  full_name: "__vmap_pages_range_noflush"
++}
+ elf_symbol {
+   id: 0xf84b240e
+   name: "__wait_on_buffer"
+@@ -525021,6 +525039,15 @@ elf_symbol {
+   type_id: 0x55423178
+   full_name: "vmap"
+ }
++elf_symbol {
++  id: 0xf1e4c40a
++  name: "vmap_pages_range_noflush"
++  is_defined: true
++  symbol_type: FUNCTION
++  crc: 0x8da8dff4
++  type_id: 0x91b76eb8
++  full_name: "vmap_pages_range_noflush"
++}
+ elf_symbol {
+   id: 0xe6c94717
+   name: "vmap_pfn"
+@@ -529312,6 +529339,7 @@ interface {
+   symbol_id: 0x4b75c281
+   symbol_id: 0xa7c8d5e4
+   symbol_id: 0x17ef5190
++  symbol_id: 0x08a0e250
+   symbol_id: 0xf84b240e
+   symbol_id: 0xb63e140d
+   symbol_id: 0xd171b921
+@@ -536975,6 +537003,7 @@ interface {
+   symbol_id: 0xa1a341df
+   symbol_id: 0x7ab04a6e
+   symbol_id: 0x8119b492
++  symbol_id: 0xf1e4c40a
+   symbol_id: 0xe6c94717
+   symbol_id: 0xdd7d73a5
+   symbol_id: 0xe4441605
+diff --git a/gki/aarch64/symbols/qcom b/gki/aarch64/symbols/qcom
+index 703090fd8ec4..35146af7cff2 100644
+--- a/gki/aarch64/symbols/qcom
++++ b/gki/aarch64/symbols/qcom
+@@ -4039,6 +4039,8 @@
+   vmalloc_to_page
+   vmalloc_to_pfn
+   vmap
++  vmap_pages_range_noflush
++  __vmap_pages_range_noflush
+   vmemdup_user
+   vmf_insert_mixed
+   vmf_insert_pfn
+-- 
+2.50.1
+

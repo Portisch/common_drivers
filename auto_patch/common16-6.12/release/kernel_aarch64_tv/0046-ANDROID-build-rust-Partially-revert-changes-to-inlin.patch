@@ -1,7 +1,7 @@
 From 60f87cd4e711efcead9b9e40887d4b17fde4aec5 Mon Sep 17 00:00:00 2001
 From: Alice Ryhl <aliceryhl@google.com>
 Date: Fri, 20 Mar 2026 13:56:39 +0000
-Subject: [PATCH 46/63] ANDROID: build: rust: Partially revert changes to
+Subject: [PATCH 046/223] ANDROID: build: rust: Partially revert changes to
  inline C helpers in Rust"
 
 This reverts commit 315f8edb95b151e3e2de05d5ca2102fa44e2ca7b, except for

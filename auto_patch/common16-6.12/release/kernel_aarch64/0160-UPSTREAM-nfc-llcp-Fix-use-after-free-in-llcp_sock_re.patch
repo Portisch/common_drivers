@@ -1,0 +1,40 @@
+From bc824ff9749d2ef96a17b4cea9b73a9152940782 Mon Sep 17 00:00:00 2001
+From: Lee Jones <lee@kernel.org>
+Date: Wed, 29 Apr 2026 13:40:41 +0000
+Subject: [PATCH 160/223] UPSTREAM: nfc: llcp: Fix use-after-free in
+ llcp_sock_release()
+
+llcp_sock_release() unconditionally unlinks the socket from the local
+sockets list.  However, if the socket is still in connecting state, it
+is on the connecting list.
+
+Fix this by checking the socket state and unlinking from the correct list.
+
+Bug: 500030631
+Fixes: b4011239a08e ("NFC: llcp: Fix non blocking sockets connections")
+Signed-off-by: Lee Jones <lee@kernel.org>
+Link: https://patch.msgid.link/20260429134115.3558604-1-lee@kernel.org
+Signed-off-by: David Heidelberg <david@ixit.cz>
+(cherry picked from commit 092b1746a0beaf51ca1af94c2c1a436d22e3e182)
+Signed-off-by: Lee Jones <joneslee@google.com>
+Change-Id: Ie06e8ffe859baff9bcf8bfbfe7fee8112c01eff4
+---
+ net/nfc/llcp_sock.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/net/nfc/llcp_sock.c b/net/nfc/llcp_sock.c
+index 57a2f97004e1..915929cd724f 100644
+--- a/net/nfc/llcp_sock.c
++++ b/net/nfc/llcp_sock.c
+@@ -633,6 +633,8 @@ static int llcp_sock_release(struct socket *sock)
+ 
+ 	if (sock->type == SOCK_RAW)
+ 		nfc_llcp_sock_unlink(&local->raw_sockets, sk);
++	else if (sk->sk_state == LLCP_CONNECTING)
++		nfc_llcp_sock_unlink(&local->connecting_sockets, sk);
+ 	else
+ 		nfc_llcp_sock_unlink(&local->sockets, sk);
+ 
+-- 
+2.50.1
+

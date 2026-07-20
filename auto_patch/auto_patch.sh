@@ -4,6 +4,10 @@
 # Copyright (c) 2019 Amlogic, Inc. All rights reserved.
 #
 
+: ${AUTO_PATCH_TOOL_NUM:=50}
+: ${AUTO_PATCH_COMMON_NUM:=400}
+: ${AUTO_PATCH_COMMON_DRIVERS_NUM:=100}
+
 function get_paths_and_enter_common_path()
 {
 	ENTER_PATH=$(pwd)
@@ -128,7 +132,7 @@ function auto_patch()
 		local dir=${COMMON_PATH}/$dir_name;   #echo $dir
 
 		[[ ! -d ${dir}/.git ]] && continue
-		local compare_change_id=$(cd ${dir} && git log -n 50 | grep "Change-Id:" | awk '{print $2}')
+		local compare_change_id=$(cd ${dir} && git log -n ${AUTO_PATCH_TOOL_NUM} | grep "Change-Id:" | awk '{print $2}')
 		am_patch ${file} ${dir} "${compare_change_id[@]}"
 	done
 }
@@ -141,11 +145,11 @@ function auto_release_patch()
 	fi
 
 	local kernel_type=
-	if (cd "${KERNEL_DIR}" && git log -n 200 | grep -q "release: kernel_aarch64 release patch flag"); then
+	if (cd "${KERNEL_DIR}" && git log -n ${AUTO_PATCH_COMMON_NUM} | grep -q "release: kernel_aarch64 release patch flag"); then
 		kernel_type=kernel_aarch64
 	fi
 
-	if (cd "${KERNEL_DIR}" && git log -n 200 | grep -q "release: kernel_aarch64_tv release patch flag"); then
+	if (cd "${KERNEL_DIR}" && git log -n ${AUTO_PATCH_COMMON_NUM} | grep -q "release: kernel_aarch64_tv release patch flag"); then
 		kernel_type=kernel_aarch64_tv
 	fi
 
@@ -162,7 +166,7 @@ function auto_release_patch()
 		exit 1
 	fi
 
-	local release_change_id=$(cd ${KERNEL_DIR} && git log -n 200 | grep "Change-Id:" | awk '{print $2}')
+	local release_change_id=$(cd ${KERNEL_DIR} && git log -n ${AUTO_PATCH_COMMON_NUM} | grep "Change-Id:" | awk '{print $2}')
 	if [ -d ${PATCHES_PATH}/release/${KERNEL_IMAGE_TYPE} ]; then
 		for patch in `find ${PATCHES_PATH}/release/${KERNEL_IMAGE_TYPE} -name "*.patch" | sort`; do
 			am_patch ${patch} ${KERNEL_DIR} "${release_change_id[@]}"
@@ -172,7 +176,7 @@ function auto_release_patch()
 
 function common_patch()
 {
-	local common_change_id=$(cd ${KERNEL_DIR} && git log -n 200 | grep "Change-Id:" | awk '{print $2}')
+	local common_change_id=$(cd ${KERNEL_DIR} && git log -n ${AUTO_PATCH_COMMON_NUM} | grep "Change-Id:" | awk '{print $2}')
 
 	if [[ -z ${common_change_id} ]]; then
 		echo "ERROR: there’s no git repository in common, so auto patch fail!"
@@ -193,7 +197,7 @@ function common_patch()
 function common_drivers_patch()
 {
 	if [[ -d ${PATCHES_PATH}/common_drivers ]]; then
-		local common_drivers_change_id=$(cd ${KERNEL_DIR}/${COMMON_DRIVERS_DIR} && git log -n 100 | grep "Change-Id:" | awk '{print $2}')
+		local common_drivers_change_id=$(cd ${KERNEL_DIR}/${COMMON_DRIVERS_DIR} && git log -n ${AUTO_PATCH_COMMON_DRIVERS_NUM} | grep "Change-Id:" | awk '{print $2}')
 		for patch in `find ${PATCHES_PATH}/common_drivers -name "*.patch" | sort`; do
 			am_patch ${patch} ${KERNEL_DIR}/${COMMON_DRIVERS_DIR} "${common_drivers_change_id[@]}"
 		done

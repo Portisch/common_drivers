@@ -1,0 +1,46 @@
+From 2c12a9bd8790dc754e22d3dd2d933decfaaf6f08 Mon Sep 17 00:00:00 2001
+From: Sandeep Dhavale <dhavale@google.com>
+Date: Tue, 14 Apr 2026 15:07:58 -0700
+Subject: [PATCH 109/223] ANDROID: fuse: Use vma_set_file() in
+ fuse_backing_mmap()
+
+Manual manipulation of vma->vm_file and file reference counts in
+fuse_backing_mmap() is error-prone.
+
+Use the vma_set_file() helper instead, which correctly handles the
+swapping of the file reference and ensures proper reference counting
+during VMA setup.
+
+Bug: 498749316
+Change-Id: I22ba0618f9fde6b698aeeeff2005830c4392969c
+Signed-off-by: Sandeep Dhavale <dhavale@google.com>
+(cherry picked from commit 517040c192cebb334766f43604e6a7ebb79d43ae)
+Signed-off-by: Lee Jones <joneslee@google.com>
+---
+ fs/fuse/backing.c | 8 ++------
+ 1 file changed, 2 insertions(+), 6 deletions(-)
+
+diff --git a/fs/fuse/backing.c b/fs/fuse/backing.c
+index c3e0db114321..78184aeba4bd 100644
+--- a/fs/fuse/backing.c
++++ b/fs/fuse/backing.c
+@@ -1045,14 +1045,10 @@ ssize_t fuse_backing_mmap(struct file *file, struct vm_area_struct *vma)
+ 	if (WARN_ON(file != vma->vm_file))
+ 		return -EIO;
+ 
+-	vma->vm_file = get_file(backing_file);
+-
++	vma_set_file(vma, backing_file);
+ 	ret = call_mmap(vma->vm_file, vma);
+-
+ 	if (ret)
+-		fput(backing_file);
+-	else
+-		fput(file);
++		return ret;
+ 
+ 	if (file->f_flags & O_NOATIME)
+ 		return ret;
+-- 
+2.50.1
+

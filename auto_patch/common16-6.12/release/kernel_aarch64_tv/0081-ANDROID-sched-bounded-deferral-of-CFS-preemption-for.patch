@@ -1,0 +1,123 @@
+From 5f0e43d81752487cce1dfaf4d946606b9876fed9 Mon Sep 17 00:00:00 2001
+From: Hu Xile <huxile@oppo.com>
+Date: Tue, 24 Mar 2026 11:11:32 +0800
+Subject: [PATCH 081/223] ANDROID: sched: bounded deferral of CFS preemption
+ for framework lock hints
+
+Add a vendor-assisted path to reduce purely slice-driven preemption for
+selected CFS tasks while user space indicates they are executing
+framework critical sections (e.g. WMS/AMS work on system_server Binder
+threads).  Deferral is strictly bounded (short timer window and a capped
+number of deferrals per lock-hold period) so scheduling cannot be
+indefinitely suppressed on long kernel paths.
+
+Hooks:
+- android_vh_lock_delay_schedule: apply policy at schedule entry on the
+  preempt path when the per-task hint is active.
+- android_vh_clear_curr_lazy: reuse the existing callsite/parameters for
+  schedule-out teardown of deferral state (shared hook point with lazy
+  preemption).
+- android_vh_lock_task_fork / android_vh_lock_task_exit: initialize and
+  reset per-task state across fork/exit.
+
+User space supplies the hint through the existing framework integration;
+implementation details are described in the associated case.
+
+Bug: 495270462
+Bug: 503656770
+Change-Id: I4526c4eed28806f8562abb7ea2815a92f5307a5e
+Signed-off-by: Hu Xile <huxile@oppo.com>
+---
+ drivers/android/vendor_hooks.c |  3 +++
+ include/trace/hooks/dtask.h    | 12 ++++++++++++
+ kernel/exit.c                  |  1 +
+ kernel/fork.c                  |  1 +
+ kernel/sched/core.c            |  6 ++++++
+ 5 files changed, 23 insertions(+)
+
+diff --git a/drivers/android/vendor_hooks.c b/drivers/android/vendor_hooks.c
+index 22cc284a66f2..5c07791c1989 100644
+--- a/drivers/android/vendor_hooks.c
++++ b/drivers/android/vendor_hooks.c
+@@ -732,4 +732,7 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_cma_release_bypass);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_cma_alloc_end);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_typec_tcpm_log);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_pci_pm_verify_state);
++EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_lock_delay_schedule);
++EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_lock_task_fork);
++EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_lock_task_exit);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_read_swap_cache_async_timeout);
+diff --git a/include/trace/hooks/dtask.h b/include/trace/hooks/dtask.h
+index 423588f89e56..91ad0b84ba2a 100644
+--- a/include/trace/hooks/dtask.h
++++ b/include/trace/hooks/dtask.h
+@@ -170,6 +170,18 @@ DECLARE_HOOK(android_vh_restore_curr_resched,
+ DECLARE_HOOK(android_vh_clear_curr_lazy,
+ 	TP_PROTO(struct task_struct *tsk),
+ 	TP_ARGS(tsk));
++
++DECLARE_HOOK(android_vh_lock_delay_schedule,
++	TP_PROTO(struct task_struct *prev, int sched_mode, bool *ext_slice),
++	TP_ARGS(prev, sched_mode, ext_slice));
++
++DECLARE_HOOK(android_vh_lock_task_fork,
++	TP_PROTO(struct task_struct *p),
++	TP_ARGS(p));
++
++DECLARE_HOOK(android_vh_lock_task_exit,
++	TP_PROTO(struct task_struct *p),
++	TP_ARGS(p));
+ #endif /* _TRACE_HOOK_DTASK_H */
+ 
+ /* This part must be outside protection */
+diff --git a/kernel/exit.c b/kernel/exit.c
+index b2af1ebbc2ea..75d22b8e4ba8 100644
+--- a/kernel/exit.c
++++ b/kernel/exit.c
+@@ -902,6 +902,7 @@ void __noreturn do_exit(long code)
+ 
+ 	seccomp_filter_release(tsk);
+ 
++	trace_android_vh_lock_task_exit(tsk);
+ 	acct_update_integrals(tsk);
+ 	group_dead = atomic_dec_and_test(&tsk->signal->live);
+ 	if (group_dead) {
+diff --git a/kernel/fork.c b/kernel/fork.c
+index 128a70001c33..39b576a76a7d 100644
+--- a/kernel/fork.c
++++ b/kernel/fork.c
+@@ -2652,6 +2652,7 @@ __latent_entropy struct task_struct *copy_process(
+ 	uprobe_copy_process(p, clone_flags);
+ 	user_events_fork(p, clone_flags);
+ 
++	trace_android_vh_lock_task_fork(p);
+ 	copy_oom_score_adj(clone_flags, p);
+ 
+ 	return p;
+diff --git a/kernel/sched/core.c b/kernel/sched/core.c
+index 301d1b764095..5180f2e82eb3 100644
+--- a/kernel/sched/core.c
++++ b/kernel/sched/core.c
+@@ -7717,6 +7717,7 @@ static void __sched notrace __schedule(int sched_mode)
+ 	struct rq *rq;
+ 	bool prev_not_proxied;
+ 	int cpu;
++	bool skip_schedule = false;
+ 
+ 	cpu = smp_processor_id();
+ 	rq = cpu_rq(cpu);
+@@ -7724,6 +7725,11 @@ static void __sched notrace __schedule(int sched_mode)
+ 
+ 	schedule_debug(prev, preempt);
+ 
++	trace_android_vh_lock_delay_schedule(prev, sched_mode, &skip_schedule);
++
++	if (skip_schedule)
++		return;
++
+ 	if (sched_feat(HRTICK) || sched_feat(HRTICK_DL))
+ 		hrtick_clear(rq);
+ 
+-- 
+2.50.1
+

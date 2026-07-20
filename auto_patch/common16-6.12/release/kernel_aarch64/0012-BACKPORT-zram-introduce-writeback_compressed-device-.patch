@@ -1,7 +1,7 @@
 From f92c7049e3f41befb9c4738a9b4f586871424b66 Mon Sep 17 00:00:00 2001
 From: Richard Chang <richardycc@google.com>
 Date: Mon, 1 Dec 2025 18:47:49 +0900
-Subject: [PATCH 12/63] BACKPORT: zram: introduce writeback_compressed device
+Subject: [PATCH 012/223] BACKPORT: zram: introduce writeback_compressed device
  attribute
 
 Introduce witeback_compressed device attribute to toggle compressed

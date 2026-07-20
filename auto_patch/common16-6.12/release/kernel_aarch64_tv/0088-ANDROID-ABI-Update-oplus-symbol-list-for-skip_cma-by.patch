@@ -1,0 +1,108 @@
+From 26961bc6d8927adb0ec14ee3a029357c34a0645d Mon Sep 17 00:00:00 2001
+From: wangtao12 <wangtao12@oppo.com>
+Date: Thu, 19 Mar 2026 20:59:48 +0800
+Subject: [PATCH 088/223] ANDROID: ABI: Update oplus symbol list for skip_cma
+ bypass hook
+
+Adding the following symbols:
+__traceiter_android_vh_skip_cma
+__tracepoint_android_vh_skip_cma
+
+Bug: 494178180
+Bug: 494397605
+Bug: 503656770
+Change-Id: Ifc9215530cabfdb81ec8eaa25b8a84f6cddbfe12
+Signed-off-by: wangtao12 <wangtao12@oppo.com>
+(cherry picked from commit 93614b0642a2560ae72fb35f67c7d15d523b88b5)
+(cherry picked from commit 117047e314aaff9eaa0d7221ec3c33df105bec04)
+---
+ gki/aarch64/abi.stg       | 27 +++++++++++++++++++++++++++
+ gki/aarch64/symbols/oplus |  2 ++
+ 2 files changed, 29 insertions(+)
+
+diff --git a/gki/aarch64/abi.stg b/gki/aarch64/abi.stg
+index 43963f27e32d..7c0cee7157fc 100644
+--- a/gki/aarch64/abi.stg
++++ b/gki/aarch64/abi.stg
+@@ -415757,6 +415757,13 @@ function {
+   parameter_id: 0x29082583
+   parameter_id: 0x6720d32f
+ }
++function {
++  id: 0x9b125901
++  return_type_id: 0x6720d32f
++  parameter_id: 0x18bd6530
++  parameter_id: 0x2e64265f
++  parameter_id: 0x11cfee5a
++}
+ function {
+   id: 0x9b12f46e
+   return_type_id: 0x6720d32f
+@@ -445947,6 +445954,15 @@ elf_symbol {
+   type_id: 0x9bdaaaaa
+   full_name: "__traceiter_android_vh_sk_free"
+ }
++elf_symbol {
++  id: 0x5b621135
++  name: "__traceiter_android_vh_skip_cma"
++  is_defined: true
++  symbol_type: FUNCTION
++  crc: 0x32e6ff51
++  type_id: 0x9b125901
++  full_name: "__traceiter_android_vh_skip_cma"
++}
+ elf_symbol {
+   id: 0x8f7ad177
+   name: "__traceiter_android_vh_skip_swap_map_write"
+@@ -453894,6 +453910,15 @@ elf_symbol {
+   type_id: 0x18ccbd2c
+   full_name: "__tracepoint_android_vh_sk_free"
+ }
++elf_symbol {
++  id: 0xdcd5ec43
++  name: "__tracepoint_android_vh_skip_cma"
++  is_defined: true
++  symbol_type: OBJECT
++  crc: 0x7c5aa8a7
++  type_id: 0x18ccbd2c
++  full_name: "__tracepoint_android_vh_skip_cma"
++}
+ elf_symbol {
+   id: 0x3204c8e5
+   name: "__tracepoint_android_vh_skip_swap_map_write"
+@@ -528220,6 +528245,7 @@ interface {
+   symbol_id: 0x56a5b453
+   symbol_id: 0x215231a8
+   symbol_id: 0x9f96ac15
++  symbol_id: 0x5b621135
+   symbol_id: 0x8f7ad177
+   symbol_id: 0x37177d11
+   symbol_id: 0x0562cb47
+@@ -529103,6 +529129,7 @@ interface {
+   symbol_id: 0x4aa5e229
+   symbol_id: 0xa5ebe436
+   symbol_id: 0x9ff9eb7b
++  symbol_id: 0xdcd5ec43
+   symbol_id: 0x3204c8e5
+   symbol_id: 0x65c6ad4b
+   symbol_id: 0x4a999b29
+diff --git a/gki/aarch64/symbols/oplus b/gki/aarch64/symbols/oplus
+index 81b67936485b..b3b0daadcca9 100644
+--- a/gki/aarch64/symbols/oplus
++++ b/gki/aarch64/symbols/oplus
+@@ -647,6 +647,7 @@
+   __traceiter_android_vh_lock_delay_schedule
+   __traceiter_android_vh_lock_task_fork
+   __traceiter_android_vh_lock_task_exit
++  __traceiter_android_vh_skip_cma
+   __tracepoint_android_vh_lru_gen_add_folio_skip
+   __tracepoint_android_vh_lru_gen_del_folio_skip
+   __tracepoint_android_vh_evict_folios_bypass
+@@ -667,3 +668,4 @@
+   __tracepoint_android_vh_lock_task_fork
+   __tracepoint_android_vh_lock_task_exit
+   isolate_folio
++  __tracepoint_android_vh_skip_cma
+-- 
+2.50.1
+

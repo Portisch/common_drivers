@@ -1,0 +1,33 @@
+From d89eb7d20d3cef5ff01d0b180c73c588bac90b8c Mon Sep 17 00:00:00 2001
+From: daiyang5 <daiyang5@xiaomi.com>
+Date: Tue, 17 Mar 2026 10:09:43 +0800
+Subject: [PATCH 079/223] ANDROID: export mem_cgroup_iter() for GKI purpose.
+
+Export the symbol mem_cgroup_iter() to support asynchronous
+shrink_slab for each memcg in a kernel module.
+
+Bug: 491161822
+Bug: 502721110
+
+Change-Id: Iad59a7fb0d1a8337b0b7550ba77c3a3e8de3b136
+Signed-off-by: daiyang5 <daiyang5@xiaomi.com>
+(cherry picked from commit 52e1d6b34520cd70fd5939f064d62b5c298ebf85)
+---
+ mm/memcontrol.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/mm/memcontrol.c b/mm/memcontrol.c
+index 5699e15d4a5f..a306b66b3fd9 100644
+--- a/mm/memcontrol.c
++++ b/mm/memcontrol.c
+@@ -1096,6 +1096,7 @@ struct mem_cgroup *mem_cgroup_iter(struct mem_cgroup *root,
+ 
+ 	return next;
+ }
++EXPORT_SYMBOL_GPL(mem_cgroup_iter);
+ 
+ /**
+  * mem_cgroup_iter_break - abort a hierarchy walk prematurely
+-- 
+2.50.1
+

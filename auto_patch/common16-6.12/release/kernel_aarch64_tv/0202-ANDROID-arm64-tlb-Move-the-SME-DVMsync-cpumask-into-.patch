@@ -1,0 +1,506 @@
+From 7fc20b0143c514bdfb7c748c1a9582502eb97014 Mon Sep 17 00:00:00 2001
+From: Vincent Donnefort <vdonnefort@google.com>
+Date: Tue, 14 Apr 2026 15:59:47 +0100
+Subject: [PATCH 202/223] ANDROID: arm64: tlb: Move the SME DVMsync cpumask
+ into task_struct
+
+To avoid breaking KMI, remove the SME DVMsync workaround cpumask from
+the struct arch_tlbflush_unmap_batch to put it directly into one of the
+KMI padding entry of task_struct.
+
+Bug: 448672457
+Signed-off-by: Vincent Donnefort <vdonnefort@google.com>
+Cherrypick-From: https://android-review.googlesource.com/q/commit:ae5c7798539542105ed20abef9f78d8a978f2d4e
+Merged-In: Ie2fb2d2c5677011ffd437f6aa0a0e2c1fa6464df
+Bug: 520016024
+Change-Id: Ie2fb2d2c5677011ffd437f6aa0a0e2c1fa6464df
+Signed-off-by: Chung-Kai (Michael) Mei <chungkai@google.com>
+---
+ arch/arm64/include/asm/tlbbatch.h  |   8 --
+ arch/arm64/include/asm/tlbflush.h  |  18 ++-
+ arch/arm64/kernel/process.c        |   6 +-
+ gki/aarch64/abi.stg                | 194 ++++++++++++++++++++++++++---
+ gki/aarch64/abi.stg.allowed_breaks |   8 ++
+ include/linux/sched.h              |   9 ++
+ 6 files changed, 212 insertions(+), 31 deletions(-)
+
+diff --git a/arch/arm64/include/asm/tlbbatch.h b/arch/arm64/include/asm/tlbbatch.h
+index 6297631532e5..47cb9b78083e 100644
+--- a/arch/arm64/include/asm/tlbbatch.h
++++ b/arch/arm64/include/asm/tlbbatch.h
+@@ -5,14 +5,6 @@
+ #include <linux/cpumask.h>
+ 
+ struct arch_tlbflush_unmap_batch {
+-#ifdef CONFIG_ARM64_ERRATUM_4193714
+-	/*
+-	 * Track CPUs that need SME DVMSync on completion of this batch.
+-	 * Otherwise, the arm64 HW can do tlb shootdown, so we don't need to
+-	 * record cpumask for sending IPI
+-	 */
+-	cpumask_var_t cpumask;
+-#endif
+ };
+ 
+ #endif /* _ARCH_ARM64_TLBBATCH_H */
+diff --git a/arch/arm64/include/asm/tlbflush.h b/arch/arm64/include/asm/tlbflush.h
+index 3db5255369f9..33de8c434239 100644
+--- a/arch/arm64/include/asm/tlbflush.h
++++ b/arch/arm64/include/asm/tlbflush.h
+@@ -95,6 +95,9 @@ static inline void sme_dvmsync(struct mm_struct *mm)
+ static inline void sme_dvmsync_add_pending(struct arch_tlbflush_unmap_batch *batch,
+ 					   struct mm_struct *mm)
+ {
++	struct tlbflush_unmap_batch *ubc = container_of(batch, struct tlbflush_unmap_batch, arch);
++	struct task_struct *tsk = container_of(ubc, struct task_struct, tlb_ubc);
++
+ 	if (!alternative_has_cap_unlikely(ARM64_WORKAROUND_4193714))
+ 		return;
+ 
+@@ -109,25 +112,28 @@ static inline void sme_dvmsync_add_pending(struct arch_tlbflush_unmap_batch *bat
+ 	 * Allocate the batch cpumask on first use. Fall back to an immediate
+ 	 * IPI for this mm in case of failure.
+ 	 */
+-	if (!cpumask_available(batch->cpumask) &&
+-	    !zalloc_cpumask_var(&batch->cpumask, GFP_ATOMIC)) {
++	if (!cpumask_available(tsk->cpumask_sme_dvmsync) &&
++	    !zalloc_cpumask_var(&tsk->cpumask_sme_dvmsync, GFP_ATOMIC)) {
+ 		sme_do_dvmsync(mm_cpumask(mm));
+ 		return;
+ 	}
+ 
+-	cpumask_or(batch->cpumask, batch->cpumask, mm_cpumask(mm));
++	cpumask_or(tsk->cpumask_sme_dvmsync, tsk->cpumask_sme_dvmsync, mm_cpumask(mm));
+ }
+ 
+ static inline void sme_dvmsync_batch(struct arch_tlbflush_unmap_batch *batch)
+ {
++	struct tlbflush_unmap_batch *ubc = container_of(batch, struct tlbflush_unmap_batch, arch);
++	struct task_struct *tsk = container_of(ubc, struct task_struct, tlb_ubc);
++
+ 	if (!alternative_has_cap_unlikely(ARM64_WORKAROUND_4193714))
+ 		return;
+ 
+-	if (!cpumask_available(batch->cpumask))
++	if (!cpumask_available(tsk->cpumask_sme_dvmsync))
+ 		return;
+ 
+-	sme_do_dvmsync(batch->cpumask);
+-	cpumask_clear(batch->cpumask);
++	sme_do_dvmsync(tsk->cpumask_sme_dvmsync);
++	cpumask_clear(tsk->cpumask_sme_dvmsync);
+ }
+ 
+ #else
+diff --git a/arch/arm64/kernel/process.c b/arch/arm64/kernel/process.c
+index 7dc64f7ccc2e..96109ac1dcbf 100644
+--- a/arch/arm64/kernel/process.c
++++ b/arch/arm64/kernel/process.c
+@@ -303,14 +303,14 @@ static void arch_dup_tlbbatch_mask(struct task_struct *dst)
+ 	 * in sme_dvmsync_add_pending() if CPUMASK_OFFSTACK=y.
+ 	 */
+ 	if (alternative_has_cap_unlikely(ARM64_WORKAROUND_4193714))
+-		memset(&dst->tlb_ubc.arch.cpumask, 0,
+-		       sizeof(dst->tlb_ubc.arch.cpumask));
++		memset(&dst->cpumask_sme_dvmsync, 0,
++		       sizeof(dst->cpumask_sme_dvmsync));
+ }
+ 
+ static void arch_release_tlbbatch_mask(struct task_struct *tsk)
+ {
+ 	if (alternative_has_cap_unlikely(ARM64_WORKAROUND_4193714))
+-		free_cpumask_var(tsk->tlb_ubc.arch.cpumask);
++		free_cpumask_var(tsk->cpumask_sme_dvmsync);
+ }
+ 
+ #else
+diff --git a/gki/aarch64/abi.stg b/gki/aarch64/abi.stg
+index ae860cff4599..09836cefc486 100644
+--- a/gki/aarch64/abi.stg
++++ b/gki/aarch64/abi.stg
+@@ -50198,6 +50198,11 @@ member {
+   id: 0x3190e1a6
+   type_id: 0x496df688
+ }
++member {
++  id: 0x31a41cbe
++  type_id: 0x49be2d18
++  offset: 27456
++}
+ member {
+   id: 0x31aa1057
+   type_id: 0x49861740
+@@ -52487,6 +52492,11 @@ member {
+   name: "__0"
+   type_id: 0x2811994b
+ }
++member {
++  id: 0x9793ae61
++  name: "__0"
++  type_id: 0x2addecdb
++}
+ member {
+   id: 0x9794a3f6
+   name: "__0"
+@@ -52772,6 +52782,11 @@ member {
+   name: "__0"
+   type_id: 0x1bdd25e4
+ }
++member {
++  id: 0x97a2d175
++  name: "__0"
++  type_id: 0x1ba2f807
++}
+ member {
+   id: 0x97a2d61f
+   name: "__0"
+@@ -54047,11 +54062,21 @@ member {
+   name: "__0"
+   type_id: 0x50096011
+ }
++member {
++  id: 0x97f01b51
++  name: "__0"
++  type_id: 0x4968dc64
++}
+ member {
+   id: 0x97fda5b3
+   name: "__0"
+   type_id: 0x44d63e47
+ }
++member {
++  id: 0x97ff074c
++  name: "__0"
++  type_id: 0x4674c1ef
++}
+ member {
+   id: 0xdb058bd1
+   name: "__1"
+@@ -54308,6 +54333,11 @@ member {
+   type_id: 0xfcf0955b
+   offset: 128
+ }
++member {
++  id: 0xaa377e00
++  name: "__bindgen_anon_1"
++  type_id: 0xfdd729e3
++}
+ member {
+   id: 0xaa381b3b
+   name: "__bindgen_anon_1"
+@@ -54469,6 +54499,11 @@ member {
+   type_id: 0x5f087f24
+   offset: 64
+ }
++member {
++  id: 0xaa976c81
++  name: "__bindgen_anon_1"
++  type_id: 0x5dc5a847
++}
+ member {
+   id: 0xaa97f961
+   name: "__bindgen_anon_1"
+@@ -54757,6 +54792,11 @@ member {
+   type_id: 0x39f0734f
+   offset: 320
+ }
++member {
++  id: 0xc53e066b
++  name: "__bindgen_anon_2"
++  type_id: 0x3518b2be
++}
+ member {
+   id: 0xc544bea6
+   name: "__bindgen_anon_2"
+@@ -54779,6 +54819,12 @@ member {
+   type_id: 0x64a0817e
+   offset: 160
+ }
++member {
++  id: 0xc5734cc8
++  name: "__bindgen_anon_2"
++  type_id: 0x7859edda
++  offset: 27456
++}
+ member {
+   id: 0xc574e762
+   name: "__bindgen_anon_2"
+@@ -54852,6 +54898,11 @@ member {
+   type_id: 0xc3b5cc39
+   offset: 384
+ }
++member {
++  id: 0xc5d102b3
++  name: "__bindgen_anon_2"
++  type_id: 0xda1c6aa9
++}
+ member {
+   id: 0xc5d76267
+   name: "__bindgen_anon_2"
+@@ -54924,6 +54975,11 @@ member {
+   name: "__bindgen_anon_3"
+   type_id: 0xd0eae9d1
+ }
++member {
++  id: 0x049e250a
++  name: "__bindgen_anon_3"
++  type_id: 0xd59f1751
++}
+ member {
+   id: 0x04a3888f
+   name: "__bindgen_anon_3"
+@@ -54973,6 +55029,11 @@ member {
+   type_id: 0x1f66c5d3
+   offset: 1600
+ }
++member {
++  id: 0x6e9fa43a
++  name: "__bindgen_anon_4"
++  type_id: 0x1a01bc7e
++}
+ member {
+   id: 0x6ead6863
+   name: "__bindgen_anon_4"
+@@ -56640,12 +56701,6 @@ member {
+   type_id: 0x92233392
+   offset: 5056
+ }
+-member {
+-  id: 0xb10d1054
+-  name: "__kabi_reserved2"
+-  type_id: 0x89d2d38c
+-  offset: 27456
+-}
+ member {
+   id: 0xb10d110e
+   name: "__kabi_reserved2"
+@@ -56772,6 +56827,11 @@ member {
+   type_id: 0x89d2d38c
+   offset: 12608
+ }
++member {
++  id: 0xb10d1ba8
++  name: "__kabi_reserved2"
++  type_id: 0x89d2d38c
++}
+ member {
+   id: 0xb10d1c6f
+   name: "__kabi_reserved2"
+@@ -56862,12 +56922,6 @@ member {
+   type_id: 0x92233392
+   offset: 219520
+ }
+-member {
+-  id: 0xb116e1b4
+-  name: "__kabi_reserved2"
+-  type_id: 0x92233392
+-  offset: 27456
+-}
+ member {
+   id: 0xb116e235
+   name: "__kabi_reserved2"
+@@ -88676,6 +88730,16 @@ member {
+   type_id: 0xc8e4d7d1
+   offset: 384
+ }
++member {
++  id: 0x7d136a1a
++  name: "cpumask_sme_dvmsync"
++  type_id: 0xb79448be
++}
++member {
++  id: 0x7d3d34f2
++  name: "cpumask_sme_dvmsync"
++  type_id: 0x99caa0ae
++}
+ member {
+   id: 0x06a558af
+   name: "cpuperf_target"
+@@ -272935,6 +272999,16 @@ struct_union {
+     member_id: 0x25ab4212
+   }
+ }
++struct_union {
++  id: 0x49be2d18
++  kind: UNION
++  definition {
++    bytesize: 8
++    member_id: 0x7d3d34f2
++    member_id: 0x2ec1e396
++    member_id: 0x36752b74
++  }
++}
+ struct_union {
+   id: 0x49df90a7
+   kind: UNION
+@@ -278820,6 +278894,38 @@ struct_union {
+     member_id: 0x97e5b752
+   }
+ }
++struct_union {
++  id: 0x5dc5a847
++  kind: STRUCT
++  name: "bindings::bindings_raw::__BindgenUnionField<bindings::bindings_raw::task_struct__bindgen_ty_2__bindgen_ty_2__bindgen_ty_1>"
++  definition {
++    member_id: 0x97ff074c
++  }
++}
++struct_union {
++  id: 0x3518b2be
++  kind: STRUCT
++  name: "bindings::bindings_raw::__BindgenUnionField<bindings::bindings_raw::task_struct__bindgen_ty_2__bindgen_ty_2__bindgen_ty_2>"
++  definition {
++    member_id: 0x97a2d175
++  }
++}
++struct_union {
++  id: 0xd59f1751
++  kind: STRUCT
++  name: "bindings::bindings_raw::__BindgenUnionField<bindings::bindings_raw::task_struct__bindgen_ty_2__bindgen_ty_2__bindgen_ty_3>"
++  definition {
++    member_id: 0x97f01b51
++  }
++}
++struct_union {
++  id: 0x1a01bc7e
++  kind: STRUCT
++  name: "bindings::bindings_raw::__BindgenUnionField<bindings::bindings_raw::task_struct__bindgen_ty_2__bindgen_ty_2__bindgen_ty_4>"
++  definition {
++    member_id: 0x9793ae61
++  }
++}
+ struct_union {
+   id: 0xc3499879
+   kind: STRUCT
+@@ -288409,7 +288515,7 @@ struct_union {
+     member_id: 0xd6603513
+     member_id: 0x9a11b83a
+     member_id: 0xaab300e6
+-    member_id: 0xb10d1054
++    member_id: 0xc5734cc8
+     member_id: 0xf0cdaefa
+     member_id: 0x0482c094
+     member_id: 0x444f0833
+@@ -288451,6 +288557,38 @@ struct_union {
+     member_id: 0xebbd65b6
+   }
+ }
++struct_union {
++  id: 0x7859edda
++  kind: UNION
++  name: "bindings::bindings_raw::task_struct__bindgen_ty_2"
++  definition {
++    bytesize: 8
++    member_id: 0x7d136a1a
++    member_id: 0xaa377e00
++    member_id: 0xc5d102b3
++  }
++}
++struct_union {
++  id: 0xfdd729e3
++  kind: STRUCT
++  name: "bindings::bindings_raw::task_struct__bindgen_ty_2__bindgen_ty_1"
++  definition {
++    bytesize: 8
++    member_id: 0xb10d1ba8
++  }
++}
++struct_union {
++  id: 0xda1c6aa9
++  kind: STRUCT
++  name: "bindings::bindings_raw::task_struct__bindgen_ty_2__bindgen_ty_2"
++  definition {
++    member_id: 0xaa976c81
++    member_id: 0xc53e066b
++    member_id: 0x049e250a
++    member_id: 0x6e9fa43a
++    member_id: 0xebbd65b6
++  }
++}
+ struct_union {
+   id: 0xfd8dd38a
+   kind: STRUCT
+@@ -294026,6 +294164,34 @@ struct_union {
+   definition {
+   }
+ }
++struct_union {
++  id: 0x4674c1ef
++  kind: STRUCT
++  name: "core::marker::PhantomData<bindings::bindings_raw::task_struct__bindgen_ty_2__bindgen_ty_2__bindgen_ty_1>"
++  definition {
++  }
++}
++struct_union {
++  id: 0x1ba2f807
++  kind: STRUCT
++  name: "core::marker::PhantomData<bindings::bindings_raw::task_struct__bindgen_ty_2__bindgen_ty_2__bindgen_ty_2>"
++  definition {
++  }
++}
++struct_union {
++  id: 0x4968dc64
++  kind: STRUCT
++  name: "core::marker::PhantomData<bindings::bindings_raw::task_struct__bindgen_ty_2__bindgen_ty_2__bindgen_ty_3>"
++  definition {
++  }
++}
++struct_union {
++  id: 0x2addecdb
++  kind: STRUCT
++  name: "core::marker::PhantomData<bindings::bindings_raw::task_struct__bindgen_ty_2__bindgen_ty_2__bindgen_ty_4>"
++  definition {
++  }
++}
+ struct_union {
+   id: 0x91085cd4
+   kind: STRUCT
+@@ -341145,7 +341311,7 @@ struct_union {
+     member_id: 0xd666c96b
+     member_id: 0x9a3adcaf
+     member_id: 0x355c7c3c
+-    member_id: 0xb116e1b4
++    member_id: 0x31a41cbe
+     member_id: 0xf0d65f1a
+     member_id: 0x04993174
+     member_id: 0x4454f9d3
+diff --git a/gki/aarch64/abi.stg.allowed_breaks b/gki/aarch64/abi.stg.allowed_breaks
+index 35a525b90278..8b4766a40779 100644
+--- a/gki/aarch64/abi.stg.allowed_breaks
++++ b/gki/aarch64/abi.stg.allowed_breaks
+@@ -142,3 +142,11 @@ type 'struct usb_device' changed
+   member 'union { unsigned int offload_at_suspend:1; struct { u64 __kabi_reserved1; }; union { }; }' was removed
+   member 'union { struct { unsigned int offload_at_suspend:1; unsigned int offload_pm_locked:1; }; struct { u64 __kabi_reserved1; }; union { }; }' was added
+ 
++type 'struct task_struct' changed
++  member 'u64 __kabi_reserved2' was removed
++  member 'union { cpumask_var_t cpumask_sme_dvmsync; struct { u64 __kabi_reserved2; }; union { }; }' was added
++
++type 'struct bindings::bindings_raw::task_struct' changed
++  member 'u64 __kabi_reserved2' was removed
++  member 'union bindings::bindings_raw::task_struct__bindgen_ty_2 __bindgen_anon_2' was added
++
+diff --git a/include/linux/sched.h b/include/linux/sched.h
+index fba4a5364f01..0be5183f1656 100644
+--- a/include/linux/sched.h
++++ b/include/linux/sched.h
+@@ -1636,7 +1636,16 @@ struct task_struct {
+ 	struct callback_head		l1d_flush_kill;
+ #endif
+ 	ANDROID_KABI_USE(1, struct task_dma_buf_info *dmabuf_info);
++#ifdef CONFIG_ARM64_ERRATUM_4193714
++	/*
++	 * Track CPUs that need SME DVMSync on completion of this batch.
++	 * Otherwise, the arm64 HW can do tlb shootdown, so we don't need to
++	 * record cpumask for sending IPI
++	 */
++	ANDROID_KABI_USE(2, cpumask_var_t cpumask_sme_dvmsync);
++#else
+ 	ANDROID_KABI_RESERVE(2);
++#endif
+ 	ANDROID_KABI_RESERVE(3);
+ 	ANDROID_KABI_RESERVE(4);
+ 	ANDROID_KABI_RESERVE(5);
+-- 
+2.50.1
+

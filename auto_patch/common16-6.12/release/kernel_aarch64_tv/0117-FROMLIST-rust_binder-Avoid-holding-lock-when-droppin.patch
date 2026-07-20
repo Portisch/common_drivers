@@ -1,0 +1,55 @@
+From af91b3a15f39c51c11eb9f95702c8cb351a4f488 Mon Sep 17 00:00:00 2001
+From: Matthew Maurer <mmaurer@google.com>
+Date: Fri, 3 Apr 2026 17:41:40 +0000
+Subject: [PATCH 117/223] FROMLIST: rust_binder: Avoid holding lock when
+ dropping delivered_death
+
+In 6c37bebd8c926, we switched to looping over the list and dropping each
+individual node, ostensibly without the lock held in the loop body.
+
+If the kernel were using Rust Edition 2024, the comment would be
+accurate, and the lock would not be held across the drop. However, the
+kernel is currently using 2021, so tail expression lifetime extension
+results in the lock being held across the drop. Explicitly binding the
+expression result to a variable makes the lockguard no longer part of a
+tail expression, causing the lock to be dropped before entering the loop
+body.
+
+This was detected via `CONFIG_PROVE_LOCKING` identifying an invalid wait
+context at the drop site.
+
+Reported-by: David Stevens <stevensd@google.com>
+Change-Id: Ic4254df7ca89873763b8f3eae45bd0afbda9b3fc
+Signed-off-by: Matthew Maurer <mmaurer@google.com>
+Cc: stable@vger.kernel.org
+Fixes: eafedbc7c050 ("rust_binder: add Rust Binder driver")
+Bug: 498679199
+Link: https://lore.kernel.org/all/20260403-lockhold-v1-1-c332b56cd8ae@google.com/
+(cherry picked from commit 05329f48575f1b22cc174d0555d1ef36b8188b2f)
+Bug: 508150991
+Signed-off-by: Alice Ryhl <aliceryhl@google.com>
+---
+ drivers/android/binder/process.rs | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/android/binder/process.rs b/drivers/android/binder/process.rs
+index f72ceaaf6d66..65e7f80bafce 100644
+--- a/drivers/android/binder/process.rs
++++ b/drivers/android/binder/process.rs
+@@ -1418,7 +1418,12 @@ fn deferred_release(self: Arc<Self>) {
+         // Clear delivered_deaths list.
+         //
+         // Scope ensures that MutexGuard is dropped while executing the body.
+-        while let Some(delivered_death) = { self.inner.lock().delivered_deaths.pop_front() } {
++        while let Some(delivered_death) = {
++            // Explicitly bind to avoid tail expression lifetime extension of the lockguard
++            // Can be removed when the kernel moves to edition 2024
++            let maybe_death = self.inner.lock().delivered_deaths.pop_front();
++            maybe_death
++        } {
+             drop(delivered_death);
+         }
+ 
+-- 
+2.50.1
+

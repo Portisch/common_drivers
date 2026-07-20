@@ -1,0 +1,84 @@
+From a896fae34699fe4b0a03b23a2f181ab4a366a373 Mon Sep 17 00:00:00 2001
+From: Akshai Murari <akshaim@google.com>
+Date: Fri, 27 Mar 2026 06:54:45 +0000
+Subject: [PATCH 065/223] FROMGIT: Input: add keycodes for contextual AI usages
+ (HUTRR119)
+
+HUTRR119 introduces new usages for keys intended to invoke AI agents
+based on the current context. These are useful with the increasing
+number of operating systems with integrated Large Language Models
+
+Add new key definitions for KEY_ACTION_ON_SELECTION,
+KEY_CONTEXTUAL_INSERT and KEY_CONTEXTUAL_QUERY
+
+Bug: 486130163
+Bug: 500625882
+Change-Id: I810323f35044529fe55039cb76a9306b2b481ec9
+(cherry picked from commit 45065a5095c7773fb98c35d60c20c3b513540597
+https://git.kernel.org/pub/scm/linux/kernel/git/hid/hid.git for-next)
+Signed-off-by: Akshai Murari <akshaim@google.com>
+Acked-by: Dmitry Torokhov <dmitry.torokhov@gmail.com>
+Signed-off-by: Jiri Kosina <jkosina@suse.com>
+(cherry picked from commit 54be3487b853077460a29ed69a7f272e8234636c)
+---
+ drivers/hid/hid-debug.c                | 6 ++++++
+ drivers/hid/hid-input.c                | 3 +++
+ include/uapi/linux/input-event-codes.h | 4 ++++
+ 3 files changed, 13 insertions(+)
+
+diff --git a/drivers/hid/hid-debug.c b/drivers/hid/hid-debug.c
+index d5abfe652fb5..3e2647cd65b7 100644
+--- a/drivers/hid/hid-debug.c
++++ b/drivers/hid/hid-debug.c
+@@ -990,6 +990,9 @@ static const struct hid_usage_entry hid_usage_table[] = {
+ 		{ 0x0c, 0x01c9, "ALContactSync" },
+ 		{ 0x0c, 0x01ca, "ALNavigation" },
+ 		{ 0x0c, 0x01cb, "ALContextawareDesktopAssistant" },
++		{ 0x0c, 0x01cc, "ALActionOnSelection" },
++		{ 0x0c, 0x01cd, "ALContextualInsertion" },
++		{ 0x0c, 0x01ce, "ALContextualQuery" },
+ 		{ 0x0c, 0x0200, "GenericGUIApplicationControls" },
+ 		{ 0x0c, 0x0201, "ACNew" },
+ 		{ 0x0c, 0x0202, "ACOpen" },
+@@ -3373,6 +3376,9 @@ static const char *keys[KEY_MAX + 1] = {
+ 	[KEY_BRIGHTNESS_MIN] = "BrightnessMin",
+ 	[KEY_BRIGHTNESS_MAX] = "BrightnessMax",
+ 	[KEY_BRIGHTNESS_AUTO] = "BrightnessAuto",
++	[KEY_ACTION_ON_SELECTION] = "ActionOnSelection",
++	[KEY_CONTEXTUAL_INSERT] = "ContextualInsert",
++	[KEY_CONTEXTUAL_QUERY] = "ContextualQuery",
+ 	[KEY_KBDINPUTASSIST_PREV] = "KbdInputAssistPrev",
+ 	[KEY_KBDINPUTASSIST_NEXT] = "KbdInputAssistNext",
+ 	[KEY_KBDINPUTASSIST_PREVGROUP] = "KbdInputAssistPrevGroup",
+diff --git a/drivers/hid/hid-input.c b/drivers/hid/hid-input.c
+index c1708caa6b6c..a726ef013d7e 100644
+--- a/drivers/hid/hid-input.c
++++ b/drivers/hid/hid-input.c
+@@ -1209,6 +1209,9 @@ static void hidinput_configure_usage(struct hid_input *hidinput, struct hid_fiel
+ 		case 0x1bc: map_key_clear(KEY_MESSENGER);	break;
+ 		case 0x1bd: map_key_clear(KEY_INFO);		break;
+ 		case 0x1cb: map_key_clear(KEY_ASSISTANT);	break;
++		case 0x1cc: map_key_clear(KEY_ACTION_ON_SELECTION);	break;
++		case 0x1cd: map_key_clear(KEY_CONTEXTUAL_INSERT);	break;
++		case 0x1ce: map_key_clear(KEY_CONTEXTUAL_QUERY);	break;
+ 		case 0x201: map_key_clear(KEY_NEW);		break;
+ 		case 0x202: map_key_clear(KEY_OPEN);		break;
+ 		case 0x203: map_key_clear(KEY_CLOSE);		break;
+diff --git a/include/uapi/linux/input-event-codes.h b/include/uapi/linux/input-event-codes.h
+index 5a199f3d4a26..05d65fbeb915 100644
+--- a/include/uapi/linux/input-event-codes.h
++++ b/include/uapi/linux/input-event-codes.h
+@@ -625,6 +625,10 @@
+ #define KEY_BRIGHTNESS_MIN		0x250	/* Set Brightness to Minimum */
+ #define KEY_BRIGHTNESS_MAX		0x251	/* Set Brightness to Maximum */
+ 
++#define KEY_ACTION_ON_SELECTION		0x254	/* AL Action on Selection (HUTRR119) */
++#define KEY_CONTEXTUAL_INSERT		0x255	/* AL Contextual Insertion (HUTRR119) */
++#define KEY_CONTEXTUAL_QUERY		0x256	/* AL Contextual Query (HUTRR119) */
++
+ #define KEY_KBDINPUTASSIST_PREV		0x260
+ #define KEY_KBDINPUTASSIST_NEXT		0x261
+ #define KEY_KBDINPUTASSIST_PREVGROUP		0x262
+-- 
+2.50.1
+

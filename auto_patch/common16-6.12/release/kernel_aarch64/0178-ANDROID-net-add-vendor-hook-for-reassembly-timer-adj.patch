@@ -1,0 +1,116 @@
+From 751778d6fde6e4cad1b46c962ead20522b9cae95 Mon Sep 17 00:00:00 2001
+From: Soukjin Bae <soukjin.bae@samsung.com>
+Date: Mon, 30 Mar 2026 17:08:57 +0900
+Subject: [PATCH 178/223] ANDROID: net: add vendor hook for reassembly timer
+ adjustment
+
+Call drops can occur when the reassembly buffer is starved due to
+heavy fragmentation. To resolve this, add a vendor hook to allow
+dropping specific damaged fragmented packets by adjusting the
+fragmentation reassembly timer.
+
+Link: https://lore.kernel.org/all/20260212081501epcms1p199584f85bafe3711791c419be09cb8d6@epcms1p1
+Bug: 497681021
+Bug: 516996459
+Change-Id: Ie18dcc6b1b7cea37c57c8371193dfdbf0f71a9c7
+Signed-off-by: Soukjin Bae <soukjin.bae@samsung.com>
+(cherry picked from commit c499b641319a164ba65949500e41cf40739aee8e)
+Signed-off-by: Giuliano Procida <gprocida@google.com>
+---
+ drivers/android/vendor_hooks.c          | 1 +
+ include/trace/hooks/net.h               | 4 ++++
+ net/ipv4/ip_fragment.c                  | 3 +++
+ net/ipv6/netfilter/nf_conntrack_reasm.c | 3 +++
+ net/ipv6/reassembly.c                   | 3 +++
+ 5 files changed, 14 insertions(+)
+
+diff --git a/drivers/android/vendor_hooks.c b/drivers/android/vendor_hooks.c
+index 1653cb7b56e2..0bfe6357966b 100644
+--- a/drivers/android/vendor_hooks.c
++++ b/drivers/android/vendor_hooks.c
+@@ -744,3 +744,4 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_lock_task_exit);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_read_swap_cache_async_timeout);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_skip_cma);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_override_exec_folio_order);
++EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_reasm_timer_adjust);
+diff --git a/include/trace/hooks/net.h b/include/trace/hooks/net.h
+index 0d29f64e3bbb..44db64f0736a 100644
+--- a/include/trace/hooks/net.h
++++ b/include/trace/hooks/net.h
+@@ -123,6 +123,10 @@ DECLARE_HOOK(android_vh_udp_enqueue_schedule_skb,
+ 	TP_PROTO(struct sock *sk, struct sk_buff *skb), TP_ARGS(sk, skb));
+ DECLARE_HOOK(android_vh_build_skb_around,
+ 	TP_PROTO(struct sk_buff *skb), TP_ARGS(skb));
++struct inet_frag_queue;
++DECLARE_HOOK(android_vh_reasm_timer_adjust,
++	TP_PROTO(struct inet_frag_queue *q, struct sk_buff *skb),
++	TP_ARGS(q, skb));
+ 
+ /* macro versions of hooks are no longer required */
+ 
+diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
+index 183856b0b740..a4c56ae457fc 100644
+--- a/net/ipv4/ip_fragment.c
++++ b/net/ipv4/ip_fragment.c
+@@ -50,6 +50,7 @@
+ #include <linux/netfilter_ipv4.h>
+ #include <net/inet_ecn.h>
+ #include <net/l3mdev.h>
++#include <trace/hooks/net.h>
+ 
+ /* NOTE. Logic of IP defragmentation is parallel to corresponding IPv6
+  * code now. If you change something here, _PLEASE_ update ipv6/reassembly.c
+@@ -322,6 +323,8 @@ static int ip_frag_queue(struct ipq *qp, struct sk_buff *skb)
+ 			goto discard_qp;
+ 		qp->q.flags |= INET_FRAG_LAST_IN;
+ 		qp->q.len = end;
++
++		trace_android_vh_reasm_timer_adjust(&qp->q, skb);
+ 	} else {
+ 		if (end&7) {
+ 			end &= ~7;
+diff --git a/net/ipv6/netfilter/nf_conntrack_reasm.c b/net/ipv6/netfilter/nf_conntrack_reasm.c
+index 4120e67a8ce6..554f0c2eb8e0 100644
+--- a/net/ipv6/netfilter/nf_conntrack_reasm.c
++++ b/net/ipv6/netfilter/nf_conntrack_reasm.c
+@@ -30,6 +30,7 @@
+ #include <linux/module.h>
+ #include <net/netfilter/ipv6/nf_defrag_ipv6.h>
+ #include <net/netns/generic.h>
++#include <trace/hooks/net.h>
+ 
+ static const char nf_frags_cache_name[] = "nf-frags";
+ 
+@@ -212,6 +213,8 @@ static int nf_ct_frag6_queue(struct frag_queue *fq, struct sk_buff *skb,
+ 		}
+ 		fq->q.flags |= INET_FRAG_LAST_IN;
+ 		fq->q.len = end;
++
++		trace_android_vh_reasm_timer_adjust(&fq->q, skb);
+ 	} else {
+ 		/* Check if the fragment is rounded to 8 bytes.
+ 		 * Required by the RFC.
+diff --git a/net/ipv6/reassembly.c b/net/ipv6/reassembly.c
+index a48be617a8ab..5521bdf26d38 100644
+--- a/net/ipv6/reassembly.c
++++ b/net/ipv6/reassembly.c
+@@ -57,6 +57,7 @@
+ #include <net/addrconf.h>
+ #include <net/ipv6_frag.h>
+ #include <net/inet_ecn.h>
++#include <trace/hooks/net.h>
+ 
+ static const char ip6_frag_cache_name[] = "ip6-frags";
+ 
+@@ -153,6 +154,8 @@ static int ip6_frag_queue(struct frag_queue *fq, struct sk_buff *skb,
+ 			goto discard_fq;
+ 		fq->q.flags |= INET_FRAG_LAST_IN;
+ 		fq->q.len = end;
++
++		trace_android_vh_reasm_timer_adjust(&fq->q, skb);
+ 	} else {
+ 		/* Check if the fragment is rounded to 8 bytes.
+ 		 * Required by the RFC.
+-- 
+2.50.1
+

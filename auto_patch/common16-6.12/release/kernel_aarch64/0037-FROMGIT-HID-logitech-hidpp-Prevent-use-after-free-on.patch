@@ -1,8 +1,8 @@
 From 480b585c764062330d2c6bf1f080c4c90ae8a756 Mon Sep 17 00:00:00 2001
 From: Lee Jones <lee@kernel.org>
 Date: Fri, 27 Feb 2026 10:09:38 +0000
-Subject: [PATCH 37/63] FROMGIT: HID: logitech-hidpp: Prevent use-after-free on
- force feedback initialisation failure
+Subject: [PATCH 037/223] FROMGIT: HID: logitech-hidpp: Prevent use-after-free
+ on force feedback initialisation failure
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit

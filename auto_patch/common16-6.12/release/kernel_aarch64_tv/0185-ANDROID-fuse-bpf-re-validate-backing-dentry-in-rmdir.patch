@@ -1,0 +1,115 @@
+From 45d0ffa25d72f6fb6e18fe8d9676590b75fc689d Mon Sep 17 00:00:00 2001
+From: Sandeep Dhavale <dhavale@google.com>
+Date: Wed, 20 May 2026 14:46:30 -0700
+Subject: [PATCH 185/223] ANDROID: fuse-bpf: re-validate backing dentry in
+ rmdir and unlink
+
+The fuse_rmdir_backing and fuse_unlink_backing fast path functions
+executed vfs_rmdir/vfs_unlink on cached backing dentries without
+re-validating if they were still valid and active on the backing
+filesystem.
+
+If a parallel thread deleted the backing file/directory directly, the
+cached backing dentry became stale (unhashed, pointing to an inode
+with i_nlink == 0). Calling vfs_rmdir/vfs_unlink on this stale dentry
+bypassed VFS safety checks, forcing the underlying filesystem (like
+f2fs) to attempt a double delete, triggering metadata corruption
+warnings (e.g., SBI_NEED_FSCK).
+
+Fix this by re-validating the backing dentry using lookup_one_len
+under the parent directory's inode lock before executing the deletion.
+If the looked-up dentry does not match our cached backing dentry
+(meaning it was deleted or changed), safely abort the operation and
+return -ENOENT.
+
+Bug: 514907255
+Bug: 519882368
+Test: CtsDownloadManagerTestCases
+Test: ScopedStorageDeviceTest
+Test: with reproducer
+Change-Id: I61edf7da9c32d14151c235d2ac29eb4392363b4d
+Signed-off-by: Sandeep Dhavale <dhavale@google.com>
+(cherry picked from commit 8b70dc4403681c64dfbb65125fc2936cb25255cf)
+---
+ fs/fuse/backing.c | 40 ++++++++++++++++++++++++++++++++++------
+ 1 file changed, 34 insertions(+), 6 deletions(-)
+
+diff --git a/fs/fuse/backing.c b/fs/fuse/backing.c
+index 78184aeba4bd..0878471a11a8 100644
+--- a/fs/fuse/backing.c
++++ b/fs/fuse/backing.c
+@@ -1570,18 +1570,32 @@ int fuse_rmdir_backing(
+ 	struct path backing_path = {};
+ 	struct dentry *backing_parent_dentry;
+ 	struct inode *backing_inode;
+-
+-	/* TODO Actually deal with changing the backing entry in rmdir */
++	struct dentry *revalidated;
++	const char *name = fa->in_args[0].value;
+ 	get_fuse_backing_path(entry, &backing_path);
+ 	if (!backing_path.dentry)
+ 		return -EBADF;
+ 
+-	/* TODO Not sure if we should reverify like overlayfs, or get inode from d_parent */
+ 	backing_parent_dentry = dget_parent(backing_path.dentry);
+ 	backing_inode = d_inode(backing_parent_dentry);
+ 
+ 	inode_lock_nested(backing_inode, I_MUTEX_PARENT);
++	/* Re-validate the backing entry under the parent lock to prevent races */
++	revalidated = lookup_one_len(name, backing_parent_dentry, strlen(name));
++	if (IS_ERR(revalidated)) {
++		err = PTR_ERR(revalidated);
++		goto out_unlock;
++	}
++	/* If the backing entry has changed or was already deleted, abort safely */
++	if (revalidated != backing_path.dentry) {
++		dput(revalidated);
++		err = -ENOENT;
++		goto out_unlock;
++	}
++	dput(revalidated);
++
+ 	err = vfs_rmdir(&nop_mnt_idmap, backing_inode, backing_path.dentry);
++out_unlock:
+ 	inode_unlock(backing_inode);
+ 
+ 	dput(backing_parent_dentry);
+@@ -1793,18 +1807,32 @@ int fuse_unlink_backing(
+ 	struct path backing_path = {};
+ 	struct dentry *backing_parent_dentry;
+ 	struct inode *backing_inode;
+-
+-	/* TODO Actually deal with changing the backing entry in unlink */
++	struct dentry *revalidated;
++	const char *name = fa->in_args[0].value;
+ 	get_fuse_backing_path(entry, &backing_path);
+ 	if (!backing_path.dentry)
+ 		return -EBADF;
+ 
+-	/* TODO Not sure if we should reverify like overlayfs, or get inode from d_parent */
+ 	backing_parent_dentry = dget_parent(backing_path.dentry);
+ 	backing_inode = d_inode(backing_parent_dentry);
+ 
+ 	inode_lock_nested(backing_inode, I_MUTEX_PARENT);
++	/* Re-validate the backing entry under the parent lock to prevent races */
++	revalidated = lookup_one_len(name, backing_parent_dentry, strlen(name));
++	if (IS_ERR(revalidated)) {
++		err = PTR_ERR(revalidated);
++		goto out_unlock;
++	}
++	/* If the backing entry has changed or was already deleted, abort safely */
++	if (revalidated != backing_path.dentry) {
++		dput(revalidated);
++		err = -ENOENT;
++		goto out_unlock;
++	}
++	dput(revalidated);
++
+ 	err = vfs_unlink(&nop_mnt_idmap, backing_inode, backing_path.dentry, NULL);
++out_unlock:
+ 	inode_unlock(backing_inode);
+ 
+ 	dput(backing_parent_dentry);
+-- 
+2.50.1
+

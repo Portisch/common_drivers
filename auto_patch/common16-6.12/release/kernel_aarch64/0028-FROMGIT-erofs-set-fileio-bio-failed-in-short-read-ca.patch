@@ -1,7 +1,7 @@
 From 7d393f0c26da42a00016100c9c909a983956dce5 Mon Sep 17 00:00:00 2001
 From: Sheng Yong <shengyong1@xiaomi.com>
 Date: Fri, 27 Feb 2026 10:30:08 +0800
-Subject: [PATCH 28/63] FROMGIT: erofs: set fileio bio failed in short read
+Subject: [PATCH 028/223] FROMGIT: erofs: set fileio bio failed in short read
  case
 
 For file-backed mount, IO requests are handled by vfs_iocb_iter_read().

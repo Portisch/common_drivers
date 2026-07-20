@@ -1,0 +1,141 @@
+From f244b3cabda5468ca6a04a92d713585f8f17a7ff Mon Sep 17 00:00:00 2001
+From: Vincent Donnefort <vdonnefort@google.com>
+Date: Mon, 9 Mar 2026 19:17:23 +0000
+Subject: [PATCH 201/223] ANDROID: KVM: arm64: Apply SME dvmsync erratum to
+ pKVM
+
+Now we have an SMC for the dvmsync erratum, call it when the host loses
+the ownership of a mapping or when restrictions are applied to this
+mapping.
+
+Add an exception for __pkvm_host_donate_ffa() which only intends to
+protect against CPU speculation on secure memory.
+
+Also the !update_iommu case in module_change_host_page_prot() is
+intended to favour speed over safety. Skip the dvmsync in this case.
+
+Bug: 448672457
+Signed-off-by: Vincent Donnefort <vdonnefort@google.com>
+Cherrypick-From: https://android-review.googlesource.com/q/commit:c03e4be7e5cbd2fd0eed3408314e14957f1393fc
+Merged-In: I1880f87e91c6c23ab908583d1337d4b3162c7b99
+Bug: 520016024
+Change-Id: I1880f87e91c6c23ab908583d1337d4b3162c7b99
+Signed-off-by: Chung-Kai (Michael) Mei <chungkai@google.com>
+---
+ arch/arm64/kvm/hyp/nvhe/mem_protect.c | 57 +++++++++++++++++----------
+ 1 file changed, 36 insertions(+), 21 deletions(-)
+
+diff --git a/arch/arm64/kvm/hyp/nvhe/mem_protect.c b/arch/arm64/kvm/hyp/nvhe/mem_protect.c
+index 6e2dea5c4cc0..0a48d4da50b1 100644
+--- a/arch/arm64/kvm/hyp/nvhe/mem_protect.c
++++ b/arch/arm64/kvm/hyp/nvhe/mem_protect.c
+@@ -631,23 +631,16 @@ static bool range_is_memory(u64 start, u64 end)
+ 	return is_in_mem_range(end - 1, &r);
+ }
+ 
+-static inline int __host_stage2_idmap(u64 start, u64 end,
+-				      enum kvm_pgtable_prot prot,
+-				      bool update_iommu)
++static void __host_stage2_idmap_complete(enum kvm_pgtable_prot prot)
+ {
+-	int ret;
+-
+-	ret = kvm_pgtable_stage2_map(&host_mmu.pgt, start, end - start, start,
+-				     prot, &host_s2_pool, 0);
+-	if (ret)
+-		return ret;
+-
+-	if (update_iommu) {
+-		kvm_iommu_host_stage2_idmap(start, end, prot);
+-		kvm_iommu_host_stage2_idmap_complete(!!prot);
+-	}
++	if ((prot & KVM_PGTABLE_PROT_RW) != KVM_PGTABLE_PROT_RW)
++		pkvm_sme_dvmsync_fw_call();
++}
+ 
+-	return 0;
++static inline int __host_stage2_idmap(u64 start, u64 end, enum kvm_pgtable_prot prot)
++{
++	return kvm_pgtable_stage2_map(&host_mmu.pgt, start, end - start, start,
++				      prot, &host_s2_pool, 0);
+ }
+ 
+ /*
+@@ -714,7 +707,19 @@ int host_stage2_idmap_locked(phys_addr_t addr, u64 size,
+ 			     enum kvm_pgtable_prot prot,
+ 			     bool update_iommu)
+ {
+-	return host_stage2_try(__host_stage2_idmap, addr, addr + size, prot, update_iommu);
++	int ret = host_stage2_try(__host_stage2_idmap, addr, addr + size, prot);
++
++	if (ret)
++		return ret;
++
++	__host_stage2_idmap_complete(prot);
++
++	if (update_iommu) {
++		kvm_iommu_host_stage2_idmap(addr, addr + size, prot);
++		kvm_iommu_host_stage2_idmap_complete(!!prot);
++	}
++
++	return 0;
+ }
+ 
+ #define KVM_MAX_OWNER_ID               FIELD_MAX(KVM_INVALID_PTE_OWNER_MASK)
+@@ -740,12 +745,17 @@ enum host_set_page_state_flags {
+ 
+ static void __host_stage2_set_owner_complete(u8 owner_id, enum host_set_page_state_flags flags)
+ {
++	bool is_memory = !(flags & HOST_SET_IS_MMIO);
++	bool map = owner_id == PKVM_ID_HOST;
++
+ 	hyp_assert_lock_held(&host_mmu.lock);
+ 
++	__host_stage2_idmap_complete(map ? default_host_prot(is_memory) : 0);
++
+ 	if (flags & HOST_SET_NO_IOMMU_UPDATE)
+ 		return;
+ 
+-	kvm_iommu_host_stage2_idmap_complete(owner_id == PKVM_ID_HOST);
++	kvm_iommu_host_stage2_idmap_complete(map);
+ }
+ 
+ static int __host_stage2_set_owner_locked(phys_addr_t addr, u64 size, u8 owner_id,
+@@ -1680,7 +1690,7 @@ int __pkvm_hyp_donate_host(u64 pfn, u64 nr_pages)
+ }
+ 
+ /*
+- * Rejects MMIO regions and does not update the IOMMU. Use with care!
++ * Rejects MMIO regions and is unsafe. Use with care!
+  */
+ int __pkvm_host_donate_ffa(u64 pfn, u64 nr_pages)
+ {
+@@ -1700,8 +1710,9 @@ int __pkvm_host_donate_ffa(u64 pfn, u64 nr_pages)
+ 	if (ret)
+ 		goto unlock;
+ 
++	/* HOST_SET_NO_COMPLETE to skip pkvm_sme_dvmsync_fw_call() */
+ 	WARN_ON(__host_stage2_set_owner_locked(phys, size, PKVM_ID_FFA, 0,
+-					       HOST_SET_NO_IOMMU_UPDATE));
++					       HOST_SET_NO_IOMMU_UPDATE | HOST_SET_NO_COMPLETE));
+ 
+ unlock:
+ 	host_unlock_component();
+@@ -1809,8 +1820,12 @@ int module_change_host_page_prot(u64 pfn, enum kvm_pgtable_prot prot, u64 nr_pag
+ 						     PKVM_ID_PROTECTED,
+ 						     PKVM_MODULE_OWNED_PAGE, flags);
+ 	} else {
+-		ret = host_stage2_idmap_locked(
+-			addr, nr_pages << PAGE_SHIFT, prot, update_iommu);
++		/* !update_iommu is fast but not safe. For that reason it also skips dvmsync */
++		if (!update_iommu)
++			ret = host_stage2_try(__host_stage2_idmap, addr,
++					      addr + (nr_pages << PAGE_SHIFT), prot);
++		else
++			ret = host_stage2_idmap_locked(addr, nr_pages << PAGE_SHIFT, prot, true);
+ 	}
+ 
+ 	if (WARN_ON(ret) || !page || !prot)
+-- 
+2.50.1
+

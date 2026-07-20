@@ -1,7 +1,7 @@
 From cdf1c990b05888eaae12a976aa4437d19cd2ba28 Mon Sep 17 00:00:00 2001
 From: Amit Sunil Dhamne <amitsd@google.com>
 Date: Mon, 23 Feb 2026 20:05:38 +0000
-Subject: [PATCH 42/63] FROMGIT: usb: typec: tcpm: add support for Sink Cap
+Subject: [PATCH 042/223] FROMGIT: usb: typec: tcpm: add support for Sink Cap
  Extended msg response
 
 Add support for responding to Sink Cap Extended msg request. To achieve

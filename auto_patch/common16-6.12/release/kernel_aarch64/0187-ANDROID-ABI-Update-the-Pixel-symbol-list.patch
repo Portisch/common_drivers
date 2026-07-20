@@ -1,0 +1,104 @@
+From 489129958a1edbee4509fb19e5d5655d9e908eb2 Mon Sep 17 00:00:00 2001
+From: Bart Van Assche <bvanassche@google.com>
+Date: Thu, 4 Jun 2026 14:22:51 -0700
+Subject: [PATCH 187/223] ANDROID: ABI: Update the Pixel symbol list
+
+Changes:
+1 function symbol(s) added
+  'int ufshcd_send_uic_cmd(struct ufs_hba*, struct uic_command*)'
+
+Bug: 503802344
+Bug: 516849018
+Bug: 520501725
+Change-Id: I2c0cae4e969ffb8f778a998ebc8141e68b2141b1
+Signed-off-by: Bart Van Assche <bvanassche@google.com>
+---
+ gki/aarch64/abi.stg       | 16 ++++++++++++++++
+ gki/aarch64/symbols/pixel |  5 +++++
+ 2 files changed, 21 insertions(+)
+
+diff --git a/gki/aarch64/abi.stg b/gki/aarch64/abi.stg
+index a02f5c4c3ced..163c7782ceba 100644
+--- a/gki/aarch64/abi.stg
++++ b/gki/aarch64/abi.stg
+@@ -421948,6 +421948,12 @@ function {
+   parameter_id: 0x0258f96e
+   parameter_id: 0x4585663f
+ }
++function {
++  id: 0x9c014417
++  return_type_id: 0x6720d32f
++  parameter_id: 0x078316ff
++  parameter_id: 0x1858a1e0
++}
+ function {
+   id: 0x9c03de2b
+   return_type_id: 0x6720d32f
+@@ -518784,6 +518790,15 @@ elf_symbol {
+   type_id: 0x9d16dd74
+   full_name: "ufshcd_runtime_suspend"
+ }
++elf_symbol {
++  id: 0x9d3db1e6
++  name: "ufshcd_send_uic_cmd"
++  is_defined: true
++  symbol_type: FUNCTION
++  crc: 0x79f193e6
++  type_id: 0x9c014417
++  full_name: "ufshcd_send_uic_cmd"
++}
+ elf_symbol {
+   id: 0x29719a35
+   name: "ufshcd_suspend_prepare"
+@@ -536669,6 +536684,7 @@ interface {
+   symbol_id: 0xeb091e22
+   symbol_id: 0x17299607
+   symbol_id: 0xd4da9de2
++  symbol_id: 0x9d3db1e6
+   symbol_id: 0x29719a35
+   symbol_id: 0x25606668
+   symbol_id: 0x0a316c12
+diff --git a/gki/aarch64/symbols/pixel b/gki/aarch64/symbols/pixel
+index 49a8022db2ad..be7f4a6aeb76 100644
+--- a/gki/aarch64/symbols/pixel
++++ b/gki/aarch64/symbols/pixel
+@@ -897,10 +897,12 @@
+   drm_kms_helper_poll_enable
+   drm_kms_helper_poll_fini
+   drm_kms_helper_poll_init
++  __drmm_add_action_or_reset
+   drm_match_cea_mode
+   drmm_connector_hdmi_init
+   drmm_connector_init
+   __drmm_crtc_alloc_with_planes
++  drmm_encoder_init
+   drmm_kmalloc
+   drmm_mode_config_init
+   drm_mode_config_cleanup
+@@ -929,6 +931,7 @@
+   drm_mode_sort
+   drm_mode_vrefresh
+   __drmm_universal_plane_alloc
++  drmm_writeback_connector_init
+   drm_object_attach_property
+   drm_object_property_set_value
+   drm_of_find_panel_or_bridge
+@@ -1158,6 +1161,7 @@
+   gpiod_direction_output
+   gpiod_direction_output_raw
+   gpio_device_get_desc
++  gpiod_get_direction
+   gpiod_get_raw_value
+   gpiod_get_raw_value_cansleep
+   gpiod_get_value
+@@ -3152,6 +3156,7 @@
+   ufshcd_resume_complete
+   ufshcd_runtime_resume
+   ufshcd_runtime_suspend
++  ufshcd_send_uic_cmd
+   ufshcd_suspend_prepare
+   ufshcd_system_resume
+   ufshcd_system_suspend
+-- 
+2.50.1
+

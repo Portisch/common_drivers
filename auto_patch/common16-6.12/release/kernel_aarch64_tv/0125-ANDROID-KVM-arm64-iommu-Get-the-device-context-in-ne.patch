@@ -1,0 +1,100 @@
+From 7f31bb54096f0983ba87e4a4dded660863ef1288 Mon Sep 17 00:00:00 2001
+From: Mostafa Saleh <smostafa@google.com>
+Date: Thu, 16 Apr 2026 11:48:18 +0000
+Subject: [PATCH 125/223] ANDROID: KVM: arm64: iommu: Get the device context in
+ nested attach
+
+Similar to normal device attach/detach, use pkvm_devices_get_context()
+for nested attach.
+
+Bug: 503371548
+Change-Id: I865e1777e995c3d51e17164c91150396aaa311dd
+Signed-off-by: Mostafa Saleh <smostafa@google.com>
+(cherry picked from commit d518f4cc29a9a95f631c8c811fe6791ad08c4f56)
+Signed-off-by: Lee Jones <joneslee@google.com>
+---
+ arch/arm64/kvm/hyp/nvhe/iommu/iommu.c | 40 +++++++++++++++++++++------
+ 1 file changed, 32 insertions(+), 8 deletions(-)
+
+diff --git a/arch/arm64/kvm/hyp/nvhe/iommu/iommu.c b/arch/arm64/kvm/hyp/nvhe/iommu/iommu.c
+index 240666786a98..883bd81bf83a 100644
+--- a/arch/arm64/kvm/hyp/nvhe/iommu/iommu.c
++++ b/arch/arm64/kvm/hyp/nvhe/iommu/iommu.c
+@@ -593,10 +593,17 @@ int kvm_iommu_attach_dev_nested(pkvm_handle_t iommu_id, pkvm_handle_t domain_id,
+ 	void *s1_desc_hyp_va = kern_hyp_va(s1_desc_hva);
+ 	void *s1_desc_hyp_va_end = s1_desc_hyp_va + s1_desc_size;
+ 
+-	ret = hyp_pin_shared_mem(s1_desc_hyp_va, s1_desc_hyp_va_end);
++	if (!kvm_iommu_ops || !kvm_iommu_ops->attach_dev_nested)
++		return -ENODEV;
++
++	ret = pkvm_devices_get_context(iommu_id, endpoint_id, NULL);
+ 	if (ret)
+ 		return ret;
+ 
++	ret = hyp_pin_shared_mem(s1_desc_hyp_va, s1_desc_hyp_va_end);
++	if (ret)
++		goto out_put_context;
++
+ 	iommu = kvm_iommu_ops->get_iommu_by_id(iommu_id);
+ 	if (!iommu) {
+ 		ret = -EINVAL;
+@@ -624,6 +631,8 @@ int kvm_iommu_attach_dev_nested(pkvm_handle_t iommu_id, pkvm_handle_t domain_id,
+ 		domain_put(idmap_domain);
+ out_unpin:
+ 	hyp_unpin_shared_mem(s1_desc_hyp_va, s1_desc_hyp_va_end);
++out_put_context:
++	pkvm_devices_put_context(iommu_id, endpoint_id);
+ 	return ret;
+ }
+ 
+@@ -636,24 +645,39 @@ int kvm_iommu_detach_dev_nested(pkvm_handle_t iommu_id, pkvm_handle_t domain_id,
+ 	/* For now, we only support nested domains that use identity mapped stage-2 contexts. */
+ 	struct kvm_hyp_iommu_domain *idmap_domain;
+ 
++	if (!kvm_iommu_ops || !kvm_iommu_ops->detach_dev_nested)
++		return -ENODEV;
++
++	ret = pkvm_devices_get_context(iommu_id, endpoint_id, NULL);
++	if (ret)
++		return ret;
++
+ 	iommu = kvm_iommu_ops->get_iommu_by_id(iommu_id);
+-	if (!iommu)
+-		return -EINVAL;
++	if (!iommu) {
++		ret = -EINVAL;
++		goto out_put_context;
++	}
+ 
+ 	domain = handle_to_domain(domain_id);
+-	if (!domain || atomic_read(&domain->refs) <= 1)
+-		return -EINVAL;
++	if (!domain || atomic_read(&domain->refs) <= 1) {
++		ret = -EINVAL;
++		goto out_put_context;
++	}
+ 
+ 	idmap_domain = handle_to_domain(KVM_IOMMU_DOMAIN_IDMAP_ID);
+-	if (!idmap_domain || atomic_read(&idmap_domain->refs) <= 1)
+-		return -EINVAL;
++	if (!idmap_domain || atomic_read(&idmap_domain->refs) <= 1) {
++		ret = -EINVAL;
++		goto out_put_context;
++	}
+ 
+ 	ret = kvm_iommu_ops->detach_dev_nested(iommu, domain, idmap_domain, endpoint_id, pasid);
+ 	if (ret)
+-		return ret;
++		goto out_put_context;
+ 
+ 	domain_put(idmap_domain);
+ 	domain_put(domain);
++out_put_context:
++	pkvm_devices_put_context(iommu_id, endpoint_id);
+ 	return ret;
+ }
+ 
+-- 
+2.50.1
+

@@ -1,7 +1,8 @@
 From 59e9f5a34cb3df3c341bbdde075f97f7947e9160 Mon Sep 17 00:00:00 2001
 From: Henry Dong <donghenry@google.com>
 Date: Fri, 27 Mar 2026 05:41:28 +0000
-Subject: [PATCH 53/63] ANDROID: vendor_hooks: Add hook for sync mmap readahead
+Subject: [PATCH 053/223] ANDROID: vendor_hooks: Add hook for sync mmap
+ readahead
 
 Add vendor hooks to precisely control sync readahead based on
 various factors, such as filesystem type, file type, process

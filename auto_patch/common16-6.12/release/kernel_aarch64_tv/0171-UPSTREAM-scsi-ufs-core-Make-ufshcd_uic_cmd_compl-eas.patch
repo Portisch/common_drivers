@@ -1,0 +1,60 @@
+From fcd2df2ec72c172109cbf23544155461e2ce684c Mon Sep 17 00:00:00 2001
+From: Bart Van Assche <bvanassche@acm.org>
+Date: Thu, 12 Sep 2024 15:30:04 -0700
+Subject: [PATCH 171/223] UPSTREAM: scsi: ufs: core: Make
+ ufshcd_uic_cmd_compl() easier to analyze
+
+In ufshcd_uic_cmd_compl(), there is code that dereferences 'cmd' with
+and without checking the 'cmd' pointer. This confuses static source code
+analyzers like Coverity and sparse. Since none of the code in
+ufshcd_uic_cmd_compl() can do anything useful if 'cmd' is NULL, move the
+'cmd' test near the start of this function.
+
+Signed-off-by: Bart Van Assche <bvanassche@acm.org>
+Link: https://lore.kernel.org/r/20240912223019.3510966-4-bvanassche@acm.org
+Reviewed-by: Peter Wang <peter.wang@mediatek.com>
+Reviewed-by: Bao D. Nguyen <quic_nguyenb@quicinc.com>
+Signed-off-by: Martin K. Petersen <martin.petersen@oracle.com>
+Bug: 503802344
+Bug: 517489432
+Change-Id: Ifc286858baaaed86a2cbf16d4dbefe39960b31cd
+(cherry picked from commit fcd8b0450a9acbf3f0e88d749a72ef932df97663)
+Signed-off-by: Bart Van Assche <bvanassche@google.com>
+(cherry picked from commit 7b7bb5b4b3400445787bce35bfbac53c60592a07)
+---
+ drivers/ufs/core/ufshcd.c | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/ufs/core/ufshcd.c b/drivers/ufs/core/ufshcd.c
+index e54bc4d22b79..f0378fbc93a0 100644
+--- a/drivers/ufs/core/ufshcd.c
++++ b/drivers/ufs/core/ufshcd.c
+@@ -5648,10 +5648,13 @@ static irqreturn_t ufshcd_uic_cmd_compl(struct ufs_hba *hba, u32 intr_status)
+ 
+ 	spin_lock(hba->host->host_lock);
+ 	cmd = hba->active_uic_cmd;
++	if (WARN_ON_ONCE(!cmd))
++		goto unlock;
++
+ 	if (ufshcd_is_auto_hibern8_error(hba, intr_status))
+ 		hba->errors |= (UFSHCD_UIC_HIBERN8_MASK & intr_status);
+ 
+-	if (intr_status & UIC_COMMAND_COMPL && cmd) {
++	if (intr_status & UIC_COMMAND_COMPL) {
+ 		cmd->argument2 |= ufshcd_get_uic_cmd_result(hba);
+ 		cmd->argument3 = ufshcd_get_dme_attr_val(hba);
+ 		if (!hba->uic_async_done)
+@@ -5668,7 +5671,10 @@ static irqreturn_t ufshcd_uic_cmd_compl(struct ufs_hba *hba, u32 intr_status)
+ 
+ 	if (retval == IRQ_HANDLED)
+ 		ufshcd_add_uic_command_trace(hba, cmd, UFS_CMD_COMP);
++
++unlock:
+ 	spin_unlock(hba->host->host_lock);
++
+ 	return retval;
+ }
+ 
+-- 
+2.50.1
+
