@@ -752,58 +752,6 @@
 	status = "okay";
 };
 
-<<<<<<< HEAD:arch/arm/boot/dts/amlogic/t5w_t962d4_at301_1.5g_R.dts
-&dim { /*multi-di*/
-	status = "disabled";
-	/***************************************************
-	 * memory: default is 4
-	 *	0:use reserved;
-	 *	1:use cma;
-	 *	2:use cma as reserved
-	 *  4:use codec mem
-	 ***************************************************/
-	flag_cma = <4>;//
-	//memory-region = <&di_cma_reserved>;
-	/***************************************************
-	 * clock-range: <min max>
-	 *	default: <334 667>
-	 ***************************************************/
-	//clock-range = <334 667>;
-	/***************************************************
-	 * en_4k: disable 4K
-	 ***************************************************/
-	en_4k = <0>;
-	//keep_dec_vf = <2>;
-	po_fmt = <0>;
-	/***************************************************
-	 * post_nub: default is 11 (T7/T3/SC2/S4 new path)
-	 * local 5*4075520 = 20
-	 * post 9*5222400 = 47
-	 ***************************************************/
-	post_nub = <9>;
-	/***************************************************
-	 * 0:not support
-	 * bit 0: for 4k
-	 * bit 1: for 1080p
-	 ***************************************************/
-	alloc_sct = <0>;
-	en_dat = <0>;
-	/***************************************************
-	 * hf: default is 0 (T7/T3/SC2/S4 new path)
-	 * 0:not enable;
-	 * 1: enable
-	 ***************************************************/
-	//hf = <0>;
-	afbce_loss_en = <1>;
-	/***************************************************
-	 * loss mode for di out (T5w)
-	 * 0:not set loss mode for di out;
-	 * 1:1:check the loss flag in vf and set for di
-	 ***************************************************/
-};/* end of multi-di */
-
-&i2c0 {
-=======
 /* Configure a specific scatter_alloc_mode independently */
 &codec_mm {
 	/*
@@ -818,7 +766,6 @@
 /*if you want to use vdin just modify status to "ok"*/
 &vdin0 {
 	/*memory-region = <&vdin0_cma_reserved>;*/
->>>>>>> bbea19c08 (DTS: CF1 Configure the scatter_alloc_mode for chips after SC2. [1/1]):arch/arm/boot/dts/amlogic/t6w_t963d5_bs311_linux_1.5g.dts
 	status = "okay";
 	clock-frequency = <300000>;
 	pinctrl-names="default";
