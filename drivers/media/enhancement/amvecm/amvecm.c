@@ -12410,8 +12410,7 @@ void resume_ve(int vpp_index)
 
 void resume_cm(int vpp_index)
 {
-	if (chip_type_id == chip_s7 ||
-		chip_type_id == chip_s7d ||
+	if (chip_type_id == chip_s6 ||
 		!reg_cm_list)
 		return;
 
