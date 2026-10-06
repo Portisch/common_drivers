@@ -103,7 +103,7 @@ enum hdr_type_e cur_dpss_src_format;
 
 static unsigned int pre_flag_lc_evc;
 #endif
-bool limit_8bit_hdr10 = true;
+bool limit_8bit_hdr10 = false;
 struct hdr_cap_info_s hdr_cap_info;
 int cur_vinfo_out_range = 0xff;
 int cur_vinfo_out_cs = 0xff;
