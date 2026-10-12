@@ -31,7 +31,6 @@
 	};
 
 	/delete-node/ adc_keypad;
-	/delete-node/ custom_maps;
 	/delete-node/ ir@8000;
 
 	/* Attention: Please turn on or off the hdr10+ function in the */
