@@ -1,4 +1,5 @@
 #include <dt-bindings/mailbox/amlogic,mbox.h>
+#include <dt-bindings/display/hdr10plus.h>
 
 /{
 	coreelec;
