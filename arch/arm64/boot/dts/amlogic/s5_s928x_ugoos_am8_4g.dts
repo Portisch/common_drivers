@@ -174,20 +174,6 @@
 	};
 };
 
-// otg (port B)
-&crg21_otg {
-	dr_mode = "host";
-	role-switch-default-mode = "host";
-	controller-type = <1>;  /* host only */
-	/delete-property/ gpio-vbus-power;
-	/delete-property/ gpios;
-	port {
-		usb_dr_sw: endpoint {
-			remote-endpoint = <&typec_dr_sw>;
-		};
-	};
-};
-
 // usb host controller (port C)
 &crg31 {
 	vbus-supply = <&usb5v_reg>;
