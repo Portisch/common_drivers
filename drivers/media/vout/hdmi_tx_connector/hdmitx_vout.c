@@ -119,16 +119,16 @@ static void update_vinfo_from_format_para(struct hdmitx_common *tx_comm)
 	vinfo->vout_device = tx_comm->vdev;
 	vinfo->info_3d = NON_3D;
 
-	if (tx_comm->flag_3dfp) {
+	if (fmtpara->flag_3dfp) {
 		vinfo->height =
 			vinfo->height * 2 + fmtpara->timing.v_blank;
 		vinfo->field_height =
 			vinfo->field_height * 2 + fmtpara->timing.v_blank;
 		vinfo->vtotal *= 2;
 		vinfo->info_3d = FP_3D;
-	} else if (tx_comm->flag_3dtb)
+	} else if (fmtpara->flag_3dtb)
 		vinfo->info_3d = TB_3D;
-	else if (tx_comm->flag_3dss)
+	else if (fmtpara->flag_3dss)
 		vinfo->info_3d = SS_3D;
 
 	/* dynamic info, always need set */
