@@ -4971,7 +4971,7 @@ static int hdmitx20_hw_cntl_ddc(struct hdmitx_hw_common *tx_hw, u32 cmd,
 		break;
 	case DDC_EDID_READ_DATA:
 		if (hdmitx_edid_valid_block_num(hdev->tx_comm.custom_edid_buf))
-			memcpy(hdev->tx_comm.edid_buf), hdev->tx_comm.custom_edid_buf, sizeof(hdev->tx_comm.edid_buf));
+			memcpy(hdev->tx_comm.edid_buf, hdev->tx_comm.custom_edid_buf, sizeof(hdev->tx_comm.edid_buf));
 		else
 			hdmitx_read_edid(&hdev->tx_comm, hdev->tx_comm.edid_buf);
 		break;
