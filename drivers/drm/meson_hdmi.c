@@ -34,6 +34,7 @@
 #include <enhancement/amvecm/amcsc.h>
 #include <drm/display/drm_hdcp_helper.h>
 
+#include <vout/hdmi_tx_connector/hdmitx_boot_parameters.h>
 #include "meson_hdmi.h"
 #include "meson_vpu.h"
 #include "meson_crtc.h"
@@ -268,6 +269,7 @@ static int meson_hdmitx_decide_color_attr
 	enum hdmi_vic vic;
 	char* colour_sampling[] = {"RGB","YUV422","YUV444","YUV420"};
 	struct hdmitx_color_attr fmt_attr = {};
+	const char *attr_str = get_hdmitx_boot_params()->color_attr;
 
 	if (!outputmode) {
 		DRM_ERROR("current mode empty.\n");
@@ -286,7 +288,7 @@ static int meson_hdmitx_decide_color_attr
 	attr->bitdepth = 8;
 
 	// read override fmt_attr by boot param hdmitx=
-	hdmitx_parse_color_attr(common->fmt_attr, &fmt_attr.colorformat, &fmt_attr.bitdepth, &fmt_attr.colorrange);
+	hdmitx_parse_color_attr(attr_str, &fmt_attr.colorformat, &fmt_attr.bitdepth, &fmt_attr.colorrange);
 	fmt_attr.bitdepth = colordepth_to_bitdepth(fmt_attr.bitdepth);
 
 	// try autoselect
@@ -303,10 +305,10 @@ static int meson_hdmitx_decide_color_attr
 			DRM_INFO("[%s]: display colour subsampling is forced to %s by Dolby Vision tunneling\n", __func__,
 				colour_sampling[attr->colorformat]);
 	} else {
-		if (strstr(common->fmt_attr, "rgb") == NULL &&
-		    strstr(common->fmt_attr, "420") == NULL &&
-		    strstr(common->fmt_attr, "422") == NULL &&
-		    strstr(common->fmt_attr, "444") == NULL) {
+		if (strstr(attr_str, "rgb") == NULL &&
+		    strstr(attr_str, "420") == NULL &&
+		    strstr(attr_str, "422") == NULL &&
+		    strstr(attr_str, "444") == NULL) {
 			if (is_hdmi4k_support_420(vic & 0xff)) {
 				/*
 				* Use YCbCr 4:2:2 when supported by the sink,
@@ -328,7 +330,7 @@ static int meson_hdmitx_decide_color_attr
 		else
 		{
 			DRM_INFO("[%s]: display colour subsampling is forced by attr to %s: %s\n", __func__,
-				colour_sampling[fmt_attr.colorformat], common->fmt_attr);
+				colour_sampling[fmt_attr.colorformat], attr_str);
 				attr->colorformat = fmt_attr.colorformat;
 		}
 	}
@@ -347,9 +349,9 @@ static int meson_hdmitx_decide_color_attr
 				attr->bitdepth);
 	} else {
 		// check colourdepth
-		if (strstr(common->fmt_attr, "bit") != NULL) {
+		if (strstr(attr_str, "bit") != NULL) {
 			DRM_INFO("[%s]: display colourdepth is forced by attr to %d bits: %s\n", __func__,
-				fmt_attr.bitdepth, common->fmt_attr);
+				fmt_attr.bitdepth, attr_str);
 				attr->bitdepth = fmt_attr.bitdepth;
 		} else {
 			if (common->rxcap.ColorDeepSupport & 0x78 && attr->colorformat != HDMI_COLORSPACE_YUV420) {
@@ -374,7 +376,7 @@ static int meson_hdmitx_decide_color_attr
 						attr->bitdepth, vic);
 				}
 			}
-			if (common->flag_3dfp) {
+			if (common->fmt_para.flag_3dfp) {
 				attr->bitdepth = colordepth_to_bitdepth(COLORDEPTH_24B);
 				DRM_INFO("[%s]: display colourdepth is auto set to %d bits because of 3dfp mode\n", __func__,
 					attr->bitdepth);
