@@ -737,16 +737,10 @@ static int meson_secure_clk_pll_enable(struct clk_hw *hw)
 
 	/*First init, just set minimal rate.*/
 	if (first_set) {
-#ifdef CONFIG_ARM
 		rate = __pll_params_to_rate(clk_hw_get_rate(parent),
 					    pll->table[0].m,
-					    pll->table[0].n, 0, pll,
-					    pll->table[0].od);
-#else
-		rate = __pll_params_to_rate(clk_hw_get_rate(parent),
-					    pll->table[0].m,
-					    pll->table[0].n, 0, pll);
-#endif
+					    pll->table[0].n, 0,
+					    pll->table[0].od, pll);
 	} else {
 		rate = meson_clk_pll_recalc_rate(hw, clk_hw_get_rate(parent));
 		rate = meson_secure_clk_pll_round_rate(hw, rate, NULL);
