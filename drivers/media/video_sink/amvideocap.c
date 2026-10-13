@@ -735,7 +735,7 @@ static int amvideocap_mmap(struct file *file,
 	/* pr_debug("mmap:%x\n",vm_size); */
 	off += priv->phyaddr;
 
-	vma->vm_flags |= VM_DONTEXPAND | VM_DONTDUMP | VM_IO;
+	vm_flags_set(vma, VM_DONTEXPAND | VM_DONTDUMP | VM_IO);
 	if (remap_pfn_range(vma, vma->vm_start, off >> PAGE_SHIFT,
 				vma->vm_end - vma->vm_start,
 				vma->vm_page_prot)) {
@@ -841,8 +841,8 @@ static const struct file_operations amvideocap_fops = {
 	/* /  .poll     = amvideocap_poll, */
 };
 
-static ssize_t show_amvideocap_config(struct class *class,
-					  struct class_attribute *attr,
+static ssize_t show_amvideocap_config(const struct class *class,
+					  const struct class_attribute *attr,
 					  char *buf)
 {
 	char *pbuf = buf;
@@ -858,8 +858,8 @@ static ssize_t show_amvideocap_config(struct class *class,
 	return size;
 }
 
-static ssize_t store_amvideocap_config(struct class *class,
-						struct class_attribute *attr,
+static ssize_t store_amvideocap_config(const struct class *class,
+						const struct class_attribute *attr,
 						const char *buf, size_t size)
 {
 	int ret, val;
@@ -1024,7 +1024,7 @@ static int amvideocap_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int amvideocap_remove(struct platform_device *plat_dev)
+static void amvideocap_remove(struct platform_device *plat_dev)
 {
 	/* struct rtc_device *rtc = platform_get_drvdata(plat_dev); */
 	/* rtc_device_unregister(rtc); */
@@ -1035,8 +1035,6 @@ static int amvideocap_remove(struct platform_device *plat_dev)
 		destroy_ge2d_work_queue(ge2d_amvideocap_context);
 		ge2d_amvideocap_context = NULL;
 	}
-
-	return 0;
 }
 
 
