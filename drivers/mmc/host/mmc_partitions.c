@@ -28,6 +28,7 @@
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
 #include <linux/blkdev.h>
+#include <linux/major.h>
 #include <linux/scatterlist.h>
 #include <linux/cdev.h>
 #include <linux/device.h>
@@ -39,13 +40,6 @@
 #include "../../../../block/blk.h"
 
 static struct mmc_partitions_fmt *pt_fmt;
-
-static void bdev_set_nr_sectors(struct block_device *bdev, sector_t sectors)
-{
-	spin_lock(&bdev->bd_size_lock);
-	i_size_write(bdev->bd_inode, (loff_t)sectors << SECTOR_SHIFT);
-	spin_unlock(&bdev->bd_size_lock);
-}
 
 static inline int card_proc_info(struct seq_file *m, char *dev_name, int i)
 {
@@ -83,7 +77,7 @@ static const struct proc_ops card_proc_fops = {
 	.proc_release = single_release,
 };
 
-/* This function is copy and modified from kernel function add_partition() */
+/* This function is copy and modified from kernel function add_partition() (6.12) */
 static struct block_device *add_emmc_each_part(struct gendisk *disk, int partno,
 				sector_t start, sector_t len, int flags,
 				struct partition_meta_info *info)
@@ -97,25 +91,17 @@ static struct block_device *add_emmc_each_part(struct gendisk *disk, int partno,
 
 	lockdep_assert_held(&disk->open_mutex);
 
-	if (partno >= disk_max_parts(disk))
+	if (partno >= DISK_MAX_PARTS)
 		return ERR_PTR(-EINVAL);
 
 	/*
 	 * Partitions are not supported on zoned block devices that are used as
 	 * such.
 	 */
-	switch (disk->queue->limits.zoned) {
-	case BLK_ZONED_HM:
+	if (bdev_is_zoned(disk->part0)) {
 		pr_warn("%s: partitions not supported on host managed zoned block device\n",
 			disk->disk_name);
 		return ERR_PTR(-ENXIO);
-	case BLK_ZONED_HA:
-		pr_info("%s: disabling host aware zoned block device support due to partitions\n",
-			disk->disk_name);
-		blk_queue_set_zoned(disk, BLK_ZONED_NONE);
-		break;
-	case BLK_ZONED_NONE:
-		break;
 	}
 
 	if (xa_load(&disk->part_tbl, partno))
@@ -142,8 +128,8 @@ static struct block_device *add_emmc_each_part(struct gendisk *disk, int partno,
 	pdev->parent = ddev;
 
 	/* in consecutive minor range? */
-	if (bdev->bd_partno < disk->minors) {
-		devt = MKDEV(disk->major, disk->first_minor + bdev->bd_partno);
+	if (bdev_partno(bdev) < disk->minors) {
+		devt = MKDEV(disk->major, disk->first_minor + bdev_partno(bdev));
 	} else {
 		err = blk_alloc_ext_minor();
 		if (err < 0)
