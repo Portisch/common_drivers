@@ -1365,9 +1365,9 @@ void meson_hdmitx_atomic_destroy_state(struct drm_connector *connector,
 void meson_hdmitx_reset(struct drm_connector *connector)
 {
 	struct am_hdmitx_connector_state *hdmitx_state;
+	struct am_hdmi_tx *am_hdmi = connector_to_am_hdmi(connector);
 	struct hdmitx_common *tx_comm = to_hdmitx_common(am_hdmi->hdmitx_dev);
 	struct hdmi_format_para *para = &tx_comm->fmt_para;
-	struct am_hdmi_tx *am_hdmi = connector_to_am_hdmi(connector);
 
 	hdmitx_state = kzalloc(sizeof(*hdmitx_state), GFP_KERNEL);
 	if (!hdmitx_state)
