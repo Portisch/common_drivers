@@ -118,8 +118,8 @@ static int __init set_gpio_power(char *str)
 }
 __setup("gpiopower=", set_gpio_power);
 
-static ssize_t setup_bl30_store(struct class *cla,
-			     struct class_attribute *attr,
+static ssize_t setup_bl30_store(const struct class *cla,
+			     const struct class_attribute *attr,
 			     const char *buf, size_t count)
 
 {
@@ -206,7 +206,7 @@ static int bl30_manager_probe(struct platform_device *pdev)
 		}
 	}
 
-	bl30_manager_class = class_create(THIS_MODULE, DRIVER_NAME);
+	bl30_manager_class = class_create(DRIVER_NAME);
 	ret = class_create_file(bl30_manager_class, &class_attr_setup_bl30);
 	if (ret)
 		pr_err("%s: create class fail.\n", DRIVER_NAME);
