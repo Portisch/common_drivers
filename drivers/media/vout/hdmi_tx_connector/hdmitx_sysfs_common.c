@@ -1304,15 +1304,17 @@ static ssize_t stereo_mode_show(struct device *dev,
 	  RENDER_STEREO_MODE_AUTO = 100,
 	  RENDER_STEREO_MODE_UNDEFINED = 999,
 	};
+	struct hdmitx_common *tx_comm = dev_get_drvdata(dev);
+	struct hdmi_format_para *para = &tx_comm->fmt_para;
 	int pos = 0;
 
-	if (global_tx_common->flag_3dtb)
+	if (para->flag_3dtb)
 		pos += snprintf(buf, PAGE_SIZE, "%d\n",
 			RENDER_STEREO_MODE_SPLIT_HORIZONTAL);
-	else if (global_tx_common->flag_3dss)
+	else if (para->flag_3dss)
 		pos += snprintf(buf, PAGE_SIZE, "%d\n",
 			RENDER_STEREO_MODE_SPLIT_VERTICAL);
-	else if (global_tx_common->flag_3dfp)
+	else if (para->flag_3dfp)
 		pos += snprintf(buf, PAGE_SIZE, "%d\n",
 			RENDER_STEREO_MODE_HARDWAREBASED);
 	else
