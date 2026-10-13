@@ -272,14 +272,13 @@ static int probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int remove(struct platform_device *pdev)
+static void remove(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct sk9822 *sk = platform_get_drvdata(pdev);
 
 	dev_info(dev, "Remove\n");
 	set_color(sk, sk->color_shutdown);
-	return 0;
 }
 
 static void shutdown(struct platform_device *pdev)
