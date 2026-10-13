@@ -19,7 +19,7 @@
 #include "clk-cpu-dyndiv.h"
 #include "vid-pll-div.h"
 #include "clk-dualdiv.h"
-#include "sc2.h"
+#include "sc2-secure.h"
 #include <dt-bindings/clock/amlogic,sc2-clkc.h>
 #include "clk-secure.h"
 
