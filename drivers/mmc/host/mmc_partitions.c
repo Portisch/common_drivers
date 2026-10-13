@@ -27,7 +27,6 @@
 #include <linux/mtd/partitions.h>
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
-#include <linux/genhd.h>
 #include <linux/blkdev.h>
 #include <linux/scatterlist.h>
 #include <linux/cdev.h>
