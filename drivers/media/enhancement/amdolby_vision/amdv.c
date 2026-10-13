@@ -17690,8 +17690,8 @@ static const struct file_operations amdolby_vision_fops = {
 };
 
 static ssize_t amdolby_vision_ko_info_show
-		(struct class *cla,
-		 struct class_attribute *attr, char *buf)
+		(const struct class *cla,
+		 const struct class_attribute *attr, char *buf)
 {
 	if (ko_info)
 		return sprintf(buf, "%s", ko_info);
