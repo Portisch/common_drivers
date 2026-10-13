@@ -721,8 +721,7 @@ static int bct3236_parse_led_dt(struct bct3236 *bct3236, struct device_node *np)
 	return 0;
 }
 
-static int bct3236_i2c_probe(struct i2c_client *i2c,
-			     const struct i2c_device_id *id)
+static int bct3236_i2c_probe(struct i2c_client *i2c)
 {
 	struct device_node *np = i2c->dev.of_node;
 	struct bct3236 *bct3236;
@@ -804,14 +803,13 @@ static int bct3236_i2c_probe(struct i2c_client *i2c,
 	return 0;
 }
 
-static int bct3236_i2c_remove(struct i2c_client *i2c)
+static void bct3236_i2c_remove(struct i2c_client *i2c)
 {
 	struct bct3236 *bct3236 = i2c_get_clientdata(i2c);
 
 	pr_info("%s: enter\n", __func__);
 	sysfs_remove_group(&bct3236->cdev.dev->kobj, &bct3236_attribute_group);
 	led_classdev_unregister(&bct3236->cdev);
-	return 0;
 }
 
 static int bct3236_suspend(struct device *dev)
