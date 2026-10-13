@@ -250,7 +250,7 @@ static inline int aml_mbox_transfer_data_old(struct mbox_chan *mbox_chan, int cm
 					 void *txbuf, u32 txsize, void *rxbuf, u32 rxsize,
 					 enum aml_mbox_sync sync)
 {
-	struct aml_mbox_data aml_data
+	struct aml_mbox_data aml_data;
 	aml_data.sync = sync;
 	aml_data.cmd = cmd;
 	aml_data.client_id = client_id;
