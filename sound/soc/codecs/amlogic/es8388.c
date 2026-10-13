@@ -1130,14 +1130,41 @@ dts:
 	};
 */
 
-static int es8388_i2c_probe(struct i2c_client *i2c,
-				      const struct i2c_device_id *id)
+/*
+ * of_get_named_gpio_flags() and enum of_gpio_flags are gone since 6.x.
+ * Read the gpio number and the flag cell of the DT phandle directly.
+ */
+#define ES8388_GPIO_ACTIVE_LOW	0x1
+
+static int es8388_get_named_gpio_flags(struct device_node *np,
+				       const char *propname, int index,
+				       unsigned int *flags)
+{
+	struct of_phandle_args args;
+	int gpio;
+
+	*flags = 0;
+	gpio = of_get_named_gpio(np, propname, index);
+	if (gpio < 0)
+		return gpio;
+
+	if (!of_parse_phandle_with_args(np, propname, "#gpio-cells",
+					index, &args)) {
+		if (args.args_count > 1)
+			*flags = args.args[1];
+		of_node_put(args.np);
+	}
+
+	return gpio;
+}
+
+static int es8388_i2c_probe(struct i2c_client *i2c)
 {
 	struct es8388_priv *es8388;
 	int ret = -1;
 	unsigned long irq_flag=0;
 	int hp_irq = 0;
-	enum of_gpio_flags flags;
+	unsigned int flags;
 	struct i2c_adapter *adapter = to_i2c_adapter(i2c->dev.parent);
 	char reg;
 
@@ -1187,14 +1214,14 @@ static int es8388_i2c_probe(struct i2c_client *i2c,
 	es8388_private = es8388;
 
 /*
-	es8388->spk_ctl_gpio = of_get_named_gpio_flags(i2c->dev.of_node, "spk_ctl_gpio", 0, &flags);
+	es8388->spk_ctl_gpio = es8388_get_named_gpio_flags(i2c->dev.of_node, "spk_ctl_gpio", 0, &flags);
 	if (es8388->spk_ctl_gpio < 0) {
 		DBG("%s() Can not read property spk codec-en-gpio\n", __FUNCTION__);
 		es8388->spk_ctl_gpio = INVALID_GPIO;
 	}
 	else
 	{
-	    es8388->spk_gpio_level = (flags & OF_GPIO_ACTIVE_LOW)? 0:1;
+	    es8388->spk_gpio_level = (flags & ES8388_GPIO_ACTIVE_LOW)? 0:1;
 	    ret = gpio_request(es8388->spk_ctl_gpio, NULL);
 	    if (ret != 0) {
 		    ERR("%s request SPK_CON error", __func__);
@@ -1203,14 +1230,14 @@ static int es8388_i2c_probe(struct i2c_client *i2c,
 	    gpio_direction_output(es8388->spk_ctl_gpio,!es8388->spk_gpio_level);
 	}
 
-	es8388->hp_ctl_gpio = of_get_named_gpio_flags(i2c->dev.of_node, "hp-con-gpio", 0, &flags);
+	es8388->hp_ctl_gpio = es8388_get_named_gpio_flags(i2c->dev.of_node, "hp-con-gpio", 0, &flags);
 	if (es8388->hp_ctl_gpio < 0) {
 		DBG("%s() Can not read property hp codec-en-gpio\n", __FUNCTION__);
 		es8388->hp_ctl_gpio = INVALID_GPIO;
 	}
 	else
 	{
-	    es8388->hp_gpio_level = (flags & OF_GPIO_ACTIVE_LOW)? 0:1;
+	    es8388->hp_gpio_level = (flags & ES8388_GPIO_ACTIVE_LOW)? 0:1;
 	    ret = gpio_request(es8388->hp_ctl_gpio, NULL);
 	    if (ret != 0) {
 		    ERR("%s request hp_ctl error", __func__);
@@ -1219,7 +1246,7 @@ static int es8388_i2c_probe(struct i2c_client *i2c,
 	    gpio_direction_output(es8388->hp_ctl_gpio,!es8388->hp_gpio_level);
 	}
 */
-	es8388->hp_det_gpio = of_get_named_gpio_flags(i2c->dev.of_node, "hp-det-gpio", 0, &flags);
+	es8388->hp_det_gpio = es8388_get_named_gpio_flags(i2c->dev.of_node, "hp-det-gpio", 0, &flags);
 	if (es8388->hp_det_gpio < 0) {
 		DBG("%s() Can not read property hp_det gpio\n", __FUNCTION__);
 		es8388->hp_det_gpio = INVALID_GPIO;
@@ -1227,7 +1254,7 @@ static int es8388_i2c_probe(struct i2c_client *i2c,
 	else
 	{
 		DBG("%s() hp_det_gpio:%d OK!\n", __FUNCTION__,es8388->hp_det_gpio);
-		es8388->hp_det_level = (flags & OF_GPIO_ACTIVE_LOW)? 0:1;
+		es8388->hp_det_level = (flags & ES8388_GPIO_ACTIVE_LOW)? 0:1;
 		ret = gpio_request(es8388->hp_det_gpio, NULL);
 		if (ret != 0) {
 			ERR("%s request HP_DET error", __func__);
@@ -1271,11 +1298,10 @@ static int es8388_i2c_probe(struct i2c_client *i2c,
 	return ret;
 }
 
-static int es8388_i2c_remove(struct i2c_client *client)
+static void es8388_i2c_remove(struct i2c_client *client)
 {
 	DBG("+%s()\n",__FUNCTION__);
 	devm_kfree(&client->dev, i2c_get_clientdata(client));
-	return 0;
 }
 
 static const struct i2c_device_id es8388_i2c_id[] = {
