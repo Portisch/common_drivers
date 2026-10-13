@@ -66,7 +66,7 @@ static void config_tv_enc_calc(struct hdmitx21_dev *hdev, enum hdmi_vic vic)
 	timing = *tp;
 	tp = &timing;
 
-	if (hdev->tx_comm.flag_3dfp)
+	if (hdev->tx_comm.fmt_para.flag_3dfp)
 	{
 		timing.v_active = timing.v_active * 2 + timing.v_blank;
 		timing.v_total *= 2;
