@@ -1210,13 +1210,16 @@ static ssize_t disp_cap_3d_show(struct device *dev,
 			     struct device_attribute *attr,
 			     char *buf)
 {
-	struct rx_cap *prxcap = &global_tx_common->rxcap;
+	struct hdmitx_common *tx_comm = dev_get_drvdata(dev);
+	struct rx_cap *prxcap = &tx_comm->rxcap;
 	const struct hdmi_timing *timing = NULL;
 	enum hdmi_vic vic;
 	int i, pos = 0;
 	int vic_len = prxcap->VIC_count + VESA_MAX_TIMING;
-	int *edid_vics = vmalloc(vic_len * sizeof(int));
+	int *edid_vics = kmalloc_array(vic_len, sizeof(int), GFP_KERNEL);
 
+	if (!edid_vics)
+		return -ENOMEM;
 	memset(edid_vics, 0, vic_len * sizeof(int));
 
 	/*copy edid vic list*/
@@ -1248,7 +1251,7 @@ static ssize_t disp_cap_3d_show(struct device *dev,
 			continue;
 		}
 
-		if (hdmitx_common_validate_vic(global_tx_common, vic) != 0) {
+		if (hdmitx_common_validate_vic(tx_comm, vic) != 0) {
 			// HDMITX_ERROR("%s: vic[%d] over range.\n", __func__, vic);
 			continue;
 		}
@@ -1273,7 +1276,7 @@ static ssize_t disp_cap_3d_show(struct device *dev,
 		}
 	}
 
-	vfree(edid_vics);
+	kfree(edid_vics);
 	return pos;
 }
 
