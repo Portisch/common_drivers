@@ -20,6 +20,7 @@
 #include <linux/uaccess.h>
 #include <linux/platform_device.h>
 #include <linux/pinctrl/pinmux.h>
+#include <linux/pinctrl/consumer.h>
 #include <linux/gpio/consumer.h>
 #include <linux/amlogic/cpu_version.h>
 #include <linux/sched/clock.h>
@@ -1815,14 +1816,14 @@ static int _set_gpio(struct smc_dev *smc,
 				   output_level ? GPIOD_OUT_HIGH :
 				   GPIOD_OUT_LOW);
 		if (IS_ERR(*gpiod)) {
-			pr_error("smc %s request failed with %d\n", str, PTR_ERR(*gpiod));
+			pr_error("smc %s request failed with %ld\n", str, PTR_ERR(*gpiod));
 			return -1;
 		}
 		ret = gpiod_direction_output(*gpiod, output_level);
 	} else if (input_output == INPUT) {
 		*gpiod = gpiod_get(&smc->pdev->dev, str, GPIOD_IN);
 		if (IS_ERR(*gpiod)) {
-			pr_error("smc %s request failed with %d\n", str, PTR_ERR(*gpiod));
+			pr_error("smc %s request failed with %ld\n", str, PTR_ERR(*gpiod));
 			return -1;
 		}
 		ret = gpiod_direction_input(*gpiod);
@@ -2456,7 +2457,7 @@ static int smc_probe(struct platform_device *pdev)
 	return smc ? 0 : -1;
 }
 
-static int smc_remove(struct platform_device *pdev)
+static void smc_remove(struct platform_device *pdev)
 {
 	struct smc_dev *smc = (struct smc_dev *)dev_get_drvdata(&pdev->dev);
 
@@ -2467,8 +2468,6 @@ static int smc_remove(struct platform_device *pdev)
 	sysfs_remove_group(&pdev->dev.kobj, &smc_attribute_group);
 
 	mutex_unlock(&smc_lock);
-
-	return 0;
 }
 
 static struct platform_driver smc_driver = {
