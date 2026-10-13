@@ -9205,14 +9205,14 @@ static int vpp_matrix_update(struct vframe_s *vf,
 	// get source type by hdr policy
 	if (get_hdr_policy() == 0) {
 		// source type limited by sink capability
-		source_format[VD1_PATH] = get_source_type_by_sink_limit(VD1_PATH, vpp_index);
-		source_format[VD2_PATH] = get_source_type_by_sink_limit(VD2_PATH, vpp_index);
-		source_format[VD3_PATH] = get_source_type_by_sink_limit(VD3_PATH, vpp_index);
+		source_format[VD1_PATH] = get_source_type_by_sink_limit(VD1_PATH, vpp_index, vf);
+		source_format[VD2_PATH] = get_source_type_by_sink_limit(VD2_PATH, vpp_index, vf);
+		source_format[VD3_PATH] = get_source_type_by_sink_limit(VD3_PATH, vpp_index, vf);
 	} else {
 		// real source type
-		source_format[VD1_PATH] = get_source_type(VD1_PATH, vpp_index, vf);
-		source_format[VD2_PATH] = get_source_type(VD2_PATH, vpp_index, vf);
-		source_format[VD3_PATH] = get_source_type(VD3_PATH, vpp_index, vf);
+		source_format[VD1_PATH] = get_hdr_source_type();
+		source_format[VD2_PATH] = get_hdr_source_type();
+		source_format[VD3_PATH] = get_hdr_source_type();
 	}
 	if (mosaic_mode) {
 		if (get_hdr_policy() == 0) {
@@ -9221,8 +9221,8 @@ static int vpp_matrix_update(struct vframe_s *vf,
 			source_format[VD2_1_PATH] = get_source_type_by_sink_limit(VD2_1_PATH, vpp_index, vf);
 		} else {
 			// real source type
-			source_format[VD1_1_PATH] = get_source_type(VD1_1_PATH, vpp_index, vf);
-			source_format[VD2_1_PATH] = get_source_type(VD2_1_PATH, vpp_index, vf);
+			source_format[VD1_1_PATH] = get_hdr_source_type();
+			source_format[VD2_1_PATH] = get_hdr_source_type();
 		}
 	}
 
