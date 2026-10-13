@@ -10159,16 +10159,16 @@ int amdv_parse_metadata_v1(struct vframe_s *vf,
 						(vinfo->dv_info.tmin_lum ^ 2)
 						* 10000 / (127 * 127);
 				}
-			} else if (vinfo->vout_device->dv_info->ver == 2) {
-				if (vinfo->vout_device->dv_info->tmaxPQ) {
+			} else if (vinfo->dv_info.ver == 2) {
+				if (vinfo->dv_info.tmaxPQ) {
 					/* Target max luminance = PQ 2055+65*CV, in nits */
 					graphic_max =
 					target_lumin_max =
-					dv_vsvdb_v2_tmax[vinfo->vout_device->dv_info->tmaxPQ];
+					dv_vsvdb_v2_tmax[vinfo->dv_info.tmaxPQ];
 					/* Target min luminance = PQ 20*CV, in 0.0001 nits */
 					/* Cover OLED pannels when Target Min PQ is set to 0 */
-					u16 tminPQ = vinfo->vout_device->dv_info->tminPQ ?
-						vinfo->vout_device->dv_info->tminPQ : 1;
+					u16 tminPQ = vinfo->dv_info.tminPQ ?
+						vinfo->dv_info.tminPQ : 1;
 					graphic_min =
 					amdv_target_min =
 					dv_vsvdb_v2_tmin[tminPQ];
@@ -11731,16 +11731,16 @@ int amdv_parse_metadata_v2_stb(struct vframe_s *vf,
 					(vinfo->dv_info.tmin_lum ^ 2) *
 					10000 / (127 * 127);
 				}
-			} else if (vinfo->vout_device->dv_info->ver == 2) {
-				if (vinfo->vout_device->dv_info->tmaxPQ) {
+			} else if (vinfo->dv_info.ver == 2) {
+				if (vinfo->dv_info.tmaxPQ) {
 					/* Target max luminance = PQ 2055+65*CV, in nits */
 					graphic_max =
 					target_lumin_max =
-					dv_vsvdb_v2_tmax[vinfo->vout_device->dv_info->tmaxPQ];
+					dv_vsvdb_v2_tmax[vinfo->dv_info.tmaxPQ];
 					/* Target min luminance = PQ 20*CV, in 0.0001 nits */
 					/* Cover OLED pannels when Target Min PQ is set to 0 */
-					u16 tminPQ = vinfo->vout_device->dv_info->tminPQ ?
-						vinfo->vout_device->dv_info->tminPQ : 1;
+					u16 tminPQ = vinfo->dv_info.tminPQ ?
+						vinfo->dv_info.tminPQ : 1;
 					graphic_min =
 					amdv_target_min =
 					dv_vsvdb_v2_tmin[tminPQ];
