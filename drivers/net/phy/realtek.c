@@ -542,7 +542,7 @@ int rtl8211f_suspend(struct phy_device *phydev)
 				phy_write(phydev, 0x11, 0x005e);
 				phy_write(phydev, 0x12, 0xfb00);
 			} else {
-				unsigned char *mac_addr = phydev->attached_dev->dev_addr;
+				const unsigned char *mac_addr = phydev->attached_dev->dev_addr;
 				pr_info("set mac for wol = %02x:%02x:%02x:%02x:%02x:%02x\n",
 					mac_addr[0], mac_addr[1], mac_addr[2], mac_addr[3], mac_addr[4], mac_addr[5]);
 				phy_write(phydev, 0x10, phydev->attached_dev->dev_addr[0] |
