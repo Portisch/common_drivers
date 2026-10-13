@@ -2394,7 +2394,7 @@ static enum hdmi_tf_type hdmitx21_get_cur_dv_st(void)
 	union hdmi_infoframe info;
 	/* struct hdmi_vendor_infoframe *vend = (struct hdmi_vendor_infoframe *)&info; */
 	struct hdmi_avi_infoframe *avi = (struct hdmi_avi_infoframe *)&info;
-	struct hdmitx_dev *hdev = get_hdmitx21_device();
+	struct hdmitx21_dev *hdev = get_hdmitx21_device();
 	struct hdmi_format_para *para = &hdev->tx_comm.fmt_para;
 	unsigned int ieee_code = 0;
 	unsigned int size = 0;
