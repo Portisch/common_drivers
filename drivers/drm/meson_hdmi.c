@@ -2714,8 +2714,8 @@ static void meson_hdmitx_hpd_cb(void *data)
 #endif
 	struct drm_device *drm = connector->dev;
 	struct drm_mode_config mode_config = drm->mode_config;
-	u8 *edid_raw_buf = NULL;
-	int edid_raw_len;
+	u8 *edid_raw_buf;
+	size_t edid_raw_len = 0;
 
 	DRM_INFO("drm hdmitx hpd notify\n");
 	if (!hdmitx_get_hpd_state(tx_comm) && !am_hdmi->android_path) {
@@ -2750,13 +2750,15 @@ static void meson_hdmitx_hpd_cb(void *data)
 	}
 #endif
 
-	edid_raw_len = hdmitx_common_read_edid(&edid_raw_buf);
+	/* the blob is a copy of all valid EDID blocks */
+	edid_raw_buf = hdmitx_get_raw_edid(tx_comm);
+	if (edid_raw_buf)
+		edid_raw_len = hdmitx_edid_valid_block_num(edid_raw_buf) * 128;
 	if (drm_property_replace_global_blob(drm, &am_hdmi->edid_raw_blob,
-					     edid_raw_len > 0 ? edid_raw_len : 0,
-					     edid_raw_buf, &connector->base,
+					     edid_raw_len, edid_raw_buf,
+					     &connector->base,
 					     am_hdmi->edid_raw_prop))
 		DRM_ERROR("Failed to update edid_raw property\n");
-	kfree(edid_raw_buf);
 
 	drm_kms_helper_hotplug_event(am_hdmi->base.connector.dev);
 }

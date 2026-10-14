@@ -659,7 +659,6 @@ const struct dv_info *hdmitx_common_get_dv_info_rx(struct hdmitx_common *tx_comm
 const struct hdr_info *hdmitx_common_get_hdr_info(struct hdmitx_common *tx_comm);
 const struct hdr_info *hdmitx_common_get_hdr_info_rx(struct hdmitx_common *tx_comm);
 int hdmitx_common_get_vic_list(struct hdmitx_common *tx_comm, int **vics);
-int hdmitx_common_read_edid(u8 **edid_buf);
 void get_hdmi_efuse(struct hdmitx_common *tx_comm);
 enum hdmi_vic hdmitx_get_prefer_vic(struct hdmitx_common *tx_comm, enum hdmi_vic vic);
 enum frl_rate_enum get_dsc_frl_rate(enum dsc_encode_mode dsc_mode);
