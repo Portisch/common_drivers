@@ -15,6 +15,7 @@
  */
 
 #include "bl30_manager.h"
+#include <linux/amlogic/aml_phy_debug.h>
 #include <linux/amlogic/media/registers/cpu_version.h>
 #include "gpio_data.h"
 
@@ -26,8 +27,6 @@ static char gpio[16] = {0};
 static uint32_t gpiopower = 0xffff;
 
 struct platform_device *bl30_pdev = NULL;
-
-extern u32 support_gpio_wol;
 
 static int __init remote_wakeup_setup(char *str)
 {
@@ -125,6 +124,8 @@ static ssize_t setup_bl30_store(const struct class *cla,
 {
 	/* mbox request channel */
 	static struct mbox_chan *bl30_mbox_chan = NULL;
+	u32 support_gpio_wol = meson8b_dwmac_get_gpio_wol();
+
 	if (IS_ERR_OR_NULL(bl30_mbox_chan))
 		bl30_mbox_chan = aml_mbox_request_channel_byname(&bl30_pdev->dev, "ree2aocpu");
 
